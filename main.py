@@ -45,6 +45,9 @@ def check_items():
 
         found = False
         for item in items:
+            # Логируем всю структуру item, чтобы понять, где находится id
+            print(f"Данные товара: {item}")
+
             market_name = item.get("market_hash_name", "")
             price = item.get("min_price", 0)
 
@@ -64,12 +67,20 @@ def check_items():
 
             # Проверка на наличие ключевых слов в названии предмета
             if any(keyword.lower() in market_name.lower() for keyword in KEYWORDS):
+                # Пробуем извлечь ID товара, если оно есть
+                item_id = item.get("id", None)
+
+                # Если ID не найден, пропускаем этот товар
+                if not item_id:
+                    print(f"Товар {market_name} не имеет ID, пропускаем.")
+                    continue
+
                 # Проверяем, был ли уже отправлен этот товар
-                if item["id"] not in sent_items:
+                if item_id not in sent_items:
                     message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price_in_euro:.2f} EUR"
                     print(message)
                     send_telegram_message(message)
-                    sent_items.append(item["id"])  # Добавляем ID товара в список отправленных
+                    sent_items.append(item_id)  # Добавляем ID товара в список отправленных
                     found = True
 
         if not found:
