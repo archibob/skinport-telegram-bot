@@ -1,24 +1,21 @@
 import requests
 import time
-import brotli
 
 # 🔧 Настройки
-TELEGRAM_BOT_TOKEN = "your-telegram-bot-token"  # Замените на свой токен
-TELEGRAM_CHAT_ID = "your-telegram-chat-id"  # Замените на свой chat_id
+TELEGRAM_BOT_TOKEN = "вставь_свой_токен"
+TELEGRAM_CHAT_ID = "вставь_свой_chat_id"
 API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
-# 🧲 Ключевые слова, по которым фильтруем нужные предметы
 KEYWORDS = ["Коготь", "Сажа"]
 
-# Заголовки для запроса с добавленной поддержкой Brotli
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
+    "User-Agent": "Mozilla/5.0",
     "Accept": "application/json",
-    "Accept-Encoding": "br",  # Поддержка Brotli
+    "Accept-Encoding": "br",  # Поддержка Brotli, если сервер её применит
 }
 
 def send_telegram_message(message):
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"  # Исправлено имя переменной
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
     try:
         response = requests.post(url, data=payload)
@@ -29,55 +26,30 @@ def send_telegram_message(message):
 
 def check_items():
     try:
-        response = requests.get(API_URL, headers=HEADERS)  # Добавлены заголовки
+        response = requests.get(API_URL, headers=HEADERS)
         print(f"Status Code: {response.status_code}")
-        
-        # Проверим, если сервер вернул статус 200
+
         if response.status_code != 200:
             error_text = f"❌ Ошибка при запросе к Skinport: {response.status_code}\n{response.text}"
             print(error_text)
             send_telegram_message(error_text)
             return
 
-        # Проверка типа контента
-        content_type = response.headers.get("Content-Type")
-        if "application/json" not in content_type:
-            error_msg = f"❗ Ответ не в формате JSON. Получен тип: {content_type}"
-            print(error_msg)
-            send_telegram_message(error_msg)
-            return
-
-        # Проверим, сжаты ли данные с помощью Brotli
-        if 'br' in response.headers.get('Content-Encoding', ''):
-            try:
-                response_content = brotli.decompress(response.content).decode('utf-8')
-            except brotli.error as e:
-                error_msg = f"❗ Ошибка при распаковке данных с Brotli: {e}"
-                print(error_msg)
-                send_telegram_message(error_msg)
-                return
-        else:
-            response_content = response.text  # если не сжато, просто читаем как текст
-
-        print("Response content:", response_content)
-
-        # Теперь пробуем распарсить JSON
         try:
-            items = response.json()  # Пробуем распарсить как JSON
-            print(f"Получено {len(items)} товаров")
-        except ValueError:
-            error_msg = f"❗ Ошибка при парсинге JSON, возможно неверный формат: {response_content}"
+            items = response.json()
+        except Exception as e:
+            error_msg = f"❗ Ошибка при парсинге JSON: {e}"
             print(error_msg)
             send_telegram_message(error_msg)
             return
 
-        # Ищем предметы с нужными ключевыми словами
+        print(f"Получено {len(items)} товаров")
         found = False
         for item in items:
-            market_name = item.get("market_hash_name", "")
+            name = item.get("market_hash_name", "")
             price = item.get("min_price", 0)
-            if any(keyword.lower() in market_name.lower() for keyword in KEYWORDS):
-                message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price / 100:.2f} EUR"
+            if any(keyword.lower() in name.lower() for keyword in KEYWORDS):
+                message = f"🔔 Найден предмет:\n{name}\n💶 Цена: {price / 100:.2f} EUR"
                 print(message)
                 send_telegram_message(message)
                 found = True
@@ -89,7 +61,7 @@ def check_items():
         print(error_msg)
         send_telegram_message(error_msg)
 
-# 🔁 Запуск в цикле
+# 🔁 Цикл
 while True:
     check_items()
-    time.sleep(60)  # Пауза 60 секунд
+    time.sleep(60)
