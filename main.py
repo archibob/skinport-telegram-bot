@@ -1,29 +1,3 @@
-import requests
-import time
-import re
-
-# 🔧 Настройки
-TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
-TELEGRAM_CHAT_ID = "388895285"
-API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
-
-# 🧲 Ключевые слова и максимальные цены (в евро)
-ITEMS_PRICE_LIMITS = {
-    "Sport Gloves | Bronze Morph": 150,
-    "Talon Knife": 300,
-    "AWP | Asiimov (Battle-Scarred)": 75
-}
-
-def send_telegram_message(message):
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
-    try:
-        response = requests.post(url, data=payload)
-        if response.status_code != 200:
-            print("Ошибка отправки в Telegram:", response.text)
-    except Exception as e:
-        print("Ошибка Telegram:", e)
-
 def check_items():
     try:
         headers = {
@@ -60,9 +34,10 @@ def check_items():
 
             # Проверка на Sport Gloves | Bronze Morph
             if re.search(r"Sport\s*Gloves\s*\|\s*Bronze\s*Morph", market_name, re.IGNORECASE):
+                print(f"Совпадение для перчаток: {market_name}")
                 if price is not None and price <= ITEMS_PRICE_LIMITS["Sport Gloves | Bronze Morph"]:
                     message = f"🔔 Найдены перчатки:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
-                    print(message)
+                    print(message)  # Для отладки
                     send_telegram_message(message)
                     matches_found += 1
 
@@ -90,8 +65,3 @@ def check_items():
         error_msg = f"❗ Ошибка при выполнении скрипта: {e}"
         print(error_msg)
         send_telegram_message(error_msg)
-
-# 🔁 Запуск в цикле
-while True:
-    check_items()
-    time.sleep(120)  # Пауза 2 минуты
