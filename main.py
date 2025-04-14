@@ -10,7 +10,8 @@ API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 # 🧲 Ключевые слова и максимальные цены (в евро)
 ITEMS_PRICE_LIMITS = {
     "Sport Gloves | Bronze Morph": 150,  # Максимальная цена для этих перчаток
-    "Talon Knife": 300  # Максимальная цена для ножей
+    "Talon Knife": 300,  # Максимальная цена для ножей
+    "AWP Asiimov (Battle-Scarred)": 75  # Максимальная цена для AWP Asiimov (Battle-Scarred)
 }
 
 # Храним уникальные идентификаторы уже найденных товаров
@@ -60,7 +61,7 @@ def check_items():
             # Логируем все товары для отладки
             print(f"Проверка товара: {market_name}, Цена: {price}, Ссылка: {item_url}")
 
-            # Регулярное выражение для поиска "Sport Gloves | Bronze Morph"
+            # Проверка для "Sport Gloves | Bronze Morph"
             if price is not None:
                 if re.search(r"Sport Gloves\s*\|\s*Bronze Morph", market_name) and price <= ITEMS_PRICE_LIMITS["Sport Gloves | Bronze Morph"] and unique_id not in found_items:
                     message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
@@ -71,8 +72,16 @@ def check_items():
 
                 # Логика для поиска ножей Talon Knife
                 elif "talon knife" in market_name.lower() and price <= ITEMS_PRICE_LIMITS["Talon Knife"] and unique_id not in found_items:
-                    message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
+                    message = f"🔔 Найден нож:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
                     print(f"Найден нож: {message}")
+                    send_telegram_message(message)
+                    found_items.add(unique_id)
+                    found = True
+
+                # Логика для поиска AWP Asiimov (Battle-Scarred)
+                elif re.search(r"AWP\s*Asiimov", market_name) and "Battle-Scarred" in market_name and price <= ITEMS_PRICE_LIMITS["AWP Asiimov (Battle-Scarred)"] and unique_id not in found_items:
+                    message = f"🔔 Найден AWP Asiimov (Battle-Scarred):\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
+                    print(f"Найден AWP Asiimov: {message}")
                     send_telegram_message(message)
                     found_items.add(unique_id)
                     found = True
