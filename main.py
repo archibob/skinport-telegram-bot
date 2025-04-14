@@ -48,6 +48,9 @@ def check_items():
             market_name = item.get("market_hash_name", "")
             price = item.get("min_price", 0)
 
+            # Логируем цену, чтобы понять, что мы получаем
+            print(f"Название: {market_name}, Цена: {price}")
+
             # Проверка на None для цены
             if price is None:
                 print(f"Цена для {market_name} не найдена.")
@@ -55,6 +58,9 @@ def check_items():
 
             # Преобразование цены в евро (если цена указана в центрах)
             price_in_euro = price / 100.0  # Преобразуем цену из центров в евро
+
+            # Логируем цену в евро
+            print(f"Цена в евро: {price_in_euro:.2f} EUR")
 
             # Проверка на наличие ключевых слов в названии предмета
             if any(keyword.lower() in market_name.lower() for keyword in KEYWORDS):
