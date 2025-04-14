@@ -44,8 +44,17 @@ def check_items():
         for item in items:
             market_name = item.get("market_hash_name", "")
             price = item.get("min_price", 0)
+
+            # Проверка, что цена действительно существует и не равна None
+            if price is None:
+                price = 0
+
+            # Преобразование цены в евро
+            price_in_euro = price / 100.0  # Преобразуем цену из центров в евро
+
+            # Проверка на наличие ключевых слов в названии предмета
             if any(keyword.lower() in market_name.lower() for keyword in KEYWORDS):
-                message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price / 100:.2f} EUR"
+                message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price_in_euro:.2f} EUR"
                 print(message)
                 send_telegram_message(message)
                 found = True
