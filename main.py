@@ -51,6 +51,8 @@ def check_items():
             if not offers:  # Если у товара нет предложений, пропускаем
                 continue
 
+            print(f"Проверяется товар: {market_name}")
+
             for offer in offers:
                 item_id = offer.get("id")
                 price_eur = offer.get("price")
@@ -58,7 +60,7 @@ def check_items():
                 if price_eur is None:
                     continue
 
-                print(f"Название: {market_name}, Цена: {price_eur} EUR")
+                print(f"    Цена товара: {price_eur} EUR")
 
                 for keyword, max_price in TARGET_ITEMS.items():
                     if keyword.lower() in market_name.lower() and price_eur <= max_price:
