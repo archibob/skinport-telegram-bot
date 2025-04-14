@@ -2,17 +2,17 @@ import requests
 import time
 
 # 🔧 Настройки
-TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
-TELEGRAM_CHAT_ID = "388895285"
+TELEGRAM_BOT_TOKEN = "твой_токен"
+TELEGRAM_CHAT_ID = "твой_чат_айди"
 API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
 # 🧲 Ключевые слова и максимальные цены (в евро)
 ITEMS_PRICE_LIMITS = {
-    "Talon Knife": 300,  # 300 евро
-    "Sport Gloves | Bronze Morph": 150  # 150 евро
+    "Talon Knife": 300,
+    "Sport Gloves": 150
 }
 
-# Храним ID уже найденных товаров
+# Храним уникальные идентификаторы уже найденных товаров
 found_items = set()
 
 def send_telegram_message(message):
@@ -53,18 +53,16 @@ def check_items():
         for item in items:
             market_name = item.get("market_hash_name", "")
             price = item.get("min_price", None)
-            item_id = item.get("id", None)
-
-            print(f"Проверяем товар: {market_name}")
-            print(f"Цена: {price} EUR")
+            item_url = item.get("url", "")
+            unique_id = f"{market_name}:{price}"
 
             if price is not None:
                 for keyword, max_price in ITEMS_PRICE_LIMITS.items():
-                    if keyword.lower() in market_name.lower() and price <= max_price and item_id not in found_items:
-                        message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price} EUR"
+                    if keyword.lower() in market_name.lower() and price <= max_price and unique_id not in found_items:
+                        message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
                         print(message)
                         send_telegram_message(message)
-                        found_items.add(item_id)
+                        found_items.add(unique_id)
                         found = True
                         break
 
@@ -81,4 +79,3 @@ def check_items():
 while True:
     check_items()
     time.sleep(120)  # Пауза 2 минуты
-
