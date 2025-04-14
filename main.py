@@ -13,6 +13,9 @@ ITEMS_PRICE_LIMITS = {
     "AK-47 | Redline": 25000  # Примерная цена для АК-47 | Redline, 250 евро в центах
 }
 
+# Храним ID уже найденных товаров
+found_items = set()
+
 def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
@@ -48,22 +51,24 @@ def check_items():
         for item in items:
             market_name = item.get("market_hash_name", "")
             price = item.get("min_price", None)
+            item_id = item.get("id", None)
 
             # Выводим все данные о товаре для отладки
             print(f"Проверяем товар: {market_name}")
             print(f"Цена сырой: {price}")
 
-            # Проверяем, если цена не равна None
+            # Если цена есть, выводим её в евро
             if price is not None:
-                # Выводим цену в евро
-                print(f"Цена товара: {price / 100:.2f} EUR")
+                price_eur = price / 100  # Цена в евро
+                print(f"Цена товара: {price_eur:.2f} EUR")
 
                 # Ищем ключевое слово в названии товара и проверяем цену
                 for keyword, min_price in ITEMS_PRICE_LIMITS.items():
-                    if keyword.lower() in market_name.lower() and price <= min_price:
-                        message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price / 100:.2f} EUR"
+                    if keyword.lower() in market_name.lower() and price <= min_price and item_id not in found_items:
+                        message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price_eur:.2f} EUR"
                         print(message)
                         send_telegram_message(message)
+                        found_items.add(item_id)  # Добавляем ID в список найденных товаров
                         found = True
                         break
 
