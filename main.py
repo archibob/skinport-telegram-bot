@@ -6,10 +6,10 @@ TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
 TELEGRAM_CHAT_ID = "388895285"
 API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
-# 🧲 Ключевые слова и минимальные цены для каждого типа предмета
+# 🧲 Ключевые слова и максимальные цены
 ITEMS_PRICE_LIMITS = {
-    "talon knife": 30000,        # 300 евро
-    "bronze morph": 15000        # 150 евро
+    "talon knife": 300,       # в евро
+    "bronze morph": 150       # в евро
 }
 
 # Храним ID уже найденных товаров
@@ -55,14 +55,10 @@ def check_items():
             if price is None or item_id is None:
                 continue
 
-            print(f"Проверяем товар: {market_name}")
-            print(f"Цена: {price} EUR")
+            market_name_lower = market_name.lower()
 
             for keyword, max_price in ITEMS_PRICE_LIMITS.items():
-                print(f"Проверка: '{keyword}' в '{market_name.lower()}'?")
-                print(f"Цена товара: {price}, лимит: {max_price}, уже найден? {item_id in found_items}")
-
-                if keyword in market_name.lower() and price <= max_price and item_id not in found_items:
+                if keyword in market_name_lower and price <= max_price and item_id not in found_items:
                     message = (
                         f"🔔 Найден предмет:\n"
                         f"{market_name}\n"
@@ -72,11 +68,11 @@ def check_items():
                     send_telegram_message(message)
                     found_items.add(item_id)
                     found = True
-                    break
+                    break  # не проверяем другие ключевые слова
 
         if not found:
             print("Ничего не найдено.")
-            send_telegram_message("⚠️ Ничего не найдено из интересующих предметов.")
+            # Не шлём лишний раз Telegram, чтобы не спамить
 
     except Exception as e:
         error_msg = f"❗ Ошибка при выполнении скрипта: {e}"
@@ -86,4 +82,4 @@ def check_items():
 # 🔁 Запуск в цикле
 while True:
     check_items()
-    time.sleep(60)  # Пауза 60 секунд
+    time.sleep(60)
