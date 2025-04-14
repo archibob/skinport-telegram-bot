@@ -9,7 +9,7 @@ API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 # 🧲 Ключевые слова и максимальные цены (в евро)
 ITEMS_PRICE_LIMITS = {
     "Talon Knife": 300,
-    "Sport Gloves": 150
+    "Sport Gloves": 170
 }
 
 def send_telegram_message(message):
