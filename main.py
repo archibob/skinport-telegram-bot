@@ -79,8 +79,7 @@ def check_items():
                     found = True
 
                 # Логика для поиска AWP Asiimov (Battle-Scarred)
-                # Теперь точнее проверяем на наличие "AWP Asiimov" и "Battle-Scarred"
-                if "AWP Asiimov" in market_name and "Battle-Scarred" in market_name:
+                if re.search(r"AWP\s*Asiimov", market_name, re.IGNORECASE) and "Battle-Scarred" in market_name:
                     print(f"Проверка AWP Asiimov: {market_name} с ценой {price} евро")
                     if price is not None and price <= ITEMS_PRICE_LIMITS["AWP Asiimov (Battle-Scarred)"] and unique_id not in found_items:
                         message = f"🔔 Найден AWP Asiimov (Battle-Scarred):\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
@@ -88,8 +87,6 @@ def check_items():
                         send_telegram_message(message)
                         found_items.add(unique_id)
                         found = True
-                    else:
-                        print(f"AWP Asiimov не подходит или уже был найден: {market_name}, Цена: {price}")
 
         if not found:
             print("Ничего не найдено.")
