@@ -1,3 +1,4 @@
 requests
 brotli
 python-telegram-bot
+beautifulsoup4
