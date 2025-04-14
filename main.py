@@ -53,7 +53,7 @@ def check_items():
             price = item.get("min_price", None)
             item_id = item.get("id", None)
 
-            # Выводим все данные о товаре для отладки
+            # Логирование всех полученных товаров для отладки
             print(f"Проверяем товар: {market_name}")
             print(f"Цена сырой (в центрах): {price}")
 
