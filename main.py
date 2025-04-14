@@ -51,7 +51,7 @@ def check_items():
         if 'br' in response.headers.get('Content-Encoding', ''):
             try:
                 response_content = brotli.decompress(response.content).decode('utf-8')
-            except Exception as e:
+            except brotli.error as e:
                 error_msg = f"❗ Ошибка при распаковке данных с Brotli: {e}"
                 print(error_msg)
                 send_telegram_message(error_msg)
