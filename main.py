@@ -87,6 +87,8 @@ def check_items():
                         send_telegram_message(message)
                         found_items.add(unique_id)
                         found = True
+                    else:
+                        print(f"AWP Asiimov не подходит или уже был найден: {market_name}, Цена: {price}")
 
         if not found:
             print("Ничего не найдено.")
