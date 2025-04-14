@@ -1,12 +1,14 @@
-import requests
-from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.common.by import By
 import time
-import re
+import requests
 
 # 🔧 Настройки
 TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
 TELEGRAM_CHAT_ID = "388895285"
-API_URL = "https://skinport.com/ru/market?cat=Rifle&item=Asiimov&type=AWP&exterior=1&sort=price&order=asc"  # Прямая ссылка на страницу с AWP
+API_URL = "https://skinport.com/ru/market?cat=Rifle&item=Asiimov&type=AWP&exterior=1&sort=price&order=asc"
 
 # 🧲 Ключевые слова и максимальные цены (в евро)
 ITEMS_PRICE_LIMITS = {
@@ -27,24 +29,16 @@ def send_telegram_message(message):
 
 def check_items():
     try:
-        headers = {
-            "Accept-Encoding": "br",
-            "User-Agent": "Mozilla/5.0"
-        }
-        response = requests.get(API_URL, headers=headers)
-        print(f"Status Code: {response.status_code}")
+        # Настроим Selenium WebDriver
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
+        driver.get(API_URL)
+        time.sleep(5)  # Ожидание загрузки страницы
 
-        if response.status_code != 200:
-            error_text = f"❌ Ошибка при запросе к Skinport: {response.status_code}\n{response.text}"
-            print(error_text)
-            send_telegram_message(error_text)
-            return
+        # Получим HTML контент страницы после рендеринга
+        html = driver.page_source
 
-        # Выводим весь HTML для отладки
-        print("Полученный HTML:\n", response.text[:1000])  # Печатаем первые 1000 символов
-
-        # Парсим HTML страницу
-        soup = BeautifulSoup(response.text, 'html.parser')
+        # Теперь парсим полученный HTML
+        soup = BeautifulSoup(html, 'html.parser')
         items = soup.find_all("div", class_="item-card")
 
         print(f"Найдено товаров: {len(items)}")
@@ -86,6 +80,8 @@ def check_items():
         if not found:
             print("Ничего не найдено.")
             send_telegram_message("⚠️ Ничего не найдено из интересующих предметов.")
+
+        driver.quit()  # Закрываем браузер после выполнения
 
     except Exception as e:
         error_msg = f"❗ Ошибка при выполнении скрипта: {e}"
