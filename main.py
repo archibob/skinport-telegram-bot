@@ -1,7 +1,7 @@
 import json
 import requests
 from telegram import Update
-from telegram.ext import Updater, CommandHandler, CallbackContext
+from telegram.ext import Application, CommandHandler, CallbackContext
 
 # Настройки
 TELEGRAM_BOT_TOKEN = '8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU'
@@ -22,10 +22,10 @@ def save_requests(requests):
         json.dump(requests, file)
 
 # Функция добавления нового предмета
-def add_item(update: Update, context: CallbackContext):
+async def add_item(update: Update, context: CallbackContext):
     # Проверяем правильность ввода
     if len(context.args) != 2:
-        update.message.reply_text("Использование: /add_item <название> <цена>")
+        await update.message.reply_text("Использование: /add_item <название> <цена>")
         return
 
     item_name = context.args[0]
@@ -40,7 +40,7 @@ def add_item(update: Update, context: CallbackContext):
     # Сохраняем запросы
     save_requests(requests)
 
-    update.message.reply_text(f"Добавлен запрос на предмет: {item_name} с ценой до {item_price} EUR")
+    await update.message.reply_text(f"Добавлен запрос на предмет: {item_name} с ценой до {item_price} EUR")
 
 # Функция поиска предметов
 def check_items():
@@ -65,19 +65,20 @@ def send_telegram_message(message):
     payload = {"chat_id": 'YOUR_CHAT_ID', "text": message}
     requests.post(url, data=payload)
 
-def main():
-    # Инициализация бота
-    updater = Updater(TELEGRAM_BOT_TOKEN)
+# Основная функция
+async def main():
+    # Инициализация бота с использованием Application
+    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
     # Команды
-    dispatcher = updater.dispatcher
-    dispatcher.add_handler(CommandHandler('add_item', add_item))
+    application.add_handler(CommandHandler('add_item', add_item))
 
     # Запуск бота
-    updater.start_polling()
+    await application.start_polling()
 
     # Проверка предметов
     check_items()
 
 if __name__ == '__main__':
-    main()
+    import asyncio
+    asyncio.run(main())
