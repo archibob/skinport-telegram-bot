@@ -59,15 +59,15 @@ def check_items():
             # Логирование всех предметов для проверки
             print(f"Товар: {market_name}, Цена: {price}, Ссылка: {item_url}")
 
-            # Проверка для Sport Gloves | Bronze Morph
-            if price is not None and "Sport Gloves | Bronze Morph" in market_name and price <= ITEMS_PRICE_LIMITS["Sport Gloves | Bronze Morph"] and unique_id not in found_items:
+            # Логика для поиска перчаток Sport Gloves | Bronze Morph
+            if price is not None and "Sport Gloves" in market_name and "Bronze Morph" in market_name and price <= ITEMS_PRICE_LIMITS["Sport Gloves | Bronze Morph"] and unique_id not in found_items:
                 message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
                 print(message)
                 send_telegram_message(message)
                 found_items.add(unique_id)
                 found = True
 
-            # Проверка для Talon Knife
+            # Логика для поиска ножей Talon Knife
             elif price is not None and "talon knife" in market_name.lower() and price <= ITEMS_PRICE_LIMITS["Talon Knife"] and unique_id not in found_items:
                 message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
                 print(message)
