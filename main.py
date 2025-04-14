@@ -1,5 +1,6 @@
 import requests
 import time
+import brotlicffi
 
 # 🔧 Настройки
 TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
@@ -30,7 +31,7 @@ def check_items():
     try:
         response = requests.get(API_URL, headers=HEADERS)  # Добавлены заголовки
         print(f"Status Code: {response.status_code}")
-        print("Response text:", response.text)  # Выводим текст ответа
+        print("Response Headers:", response.headers)  # Добавим вывод заголовков
 
         if response.status_code != 200:
             error_text = f"❌ Ошибка при запросе к Skinport: {response.status_code}\n{response.text}"
@@ -38,7 +39,16 @@ def check_items():
             send_telegram_message(error_text)
             return
 
-        if not response.text.strip():  # Проверяем, что тело ответа не пустое
+        if response.headers.get('Content-Encoding') == 'br':  # Проверяем, если сжатие Brotli
+            # Декодируем ответ с помощью brotlicffi
+            decompressed_data = brotlicffi.decompress(response.content)
+            response_text = decompressed_data.decode('utf-8')
+        else:
+            response_text = response.text
+
+        print("Response text:", response_text)  # Выводим текст ответа
+
+        if not response_text.strip():  # Проверяем, что тело ответа не пустое
             error_msg = "❗ Ответ от API Skinport пустой!"
             print(error_msg)
             send_telegram_message(error_msg)
