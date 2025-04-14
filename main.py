@@ -65,7 +65,7 @@ def check_items():
                     message = f"🔔 Найдены перчатки:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
                     print(message)
                     send_telegram_message(message)
-                    matches_found += 1
+                    matches_found += 4
 
             # Проверка на Talon Knife
             if "talon knife" in market_name.lower():
