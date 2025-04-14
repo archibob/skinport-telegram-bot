@@ -1,6 +1,5 @@
 import requests
 import time
-import brotlicffi
 
 # 🔧 Настройки
 TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
@@ -40,9 +39,8 @@ def check_items():
             return
 
         if response.headers.get('Content-Encoding') == 'br':  # Проверяем, если сжатие Brotli
-            # Декодируем ответ с помощью brotlicffi
-            decompressed_data = brotlicffi.decompress(response.content)
-            response_text = decompressed_data.decode('utf-8')
+            # Декодируем ответ с помощью встроенных возможностей requests
+            response_text = response.content.decode('utf-8')
         else:
             response_text = response.text
 
