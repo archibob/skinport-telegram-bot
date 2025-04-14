@@ -48,10 +48,14 @@ def check_items():
 
         found = False
         for item in items:
+            print(f"Полные данные товара: {item}")  # Выводим полную информацию для каждого товара
+            
             market_name = item.get("market_hash_name", "")
             price = item.get("min_price", None)
             item_id = item.get("id", None)
-            item_url = f"https://skinport.com/item/{item_id}" if item_id else ""
+            item_url = f"https://skinport.com/item/{item_id}" if item_id else "Ссылка не доступна"
+
+            print(f"Товар: {market_name}, Цена: {price}, ID: {item_id}, Ссылка: {item_url}")
 
             if price is not None:
                 for keyword, max_price in ITEMS_PRICE_LIMITS.items():
