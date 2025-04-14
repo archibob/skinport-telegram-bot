@@ -49,11 +49,12 @@ def check_items():
         found = False
         for item in items:
             print(f"Полные данные товара: {item}")  # Выводим полную информацию для каждого товара
-            
+
             market_name = item.get("market_hash_name", "")
             price = item.get("min_price", None)
-            item_url = item.get("url", "Ссылка не доступна")  # Используем 'url' из данных
+            item_url = item.get("url", "Ссылка не доступна")  # Попробуем использовать 'url' из данных
 
+            # Выводим поля товара, чтобы увидеть, какие данные мы можем использовать
             print(f"Товар: {market_name}, Цена: {price}, Ссылка: {item_url}")
 
             if price is not None:
@@ -83,3 +84,4 @@ def check_items():
 while True:
     check_items()
     time.sleep(120)  # Пауза 2 минуты
+
