@@ -11,7 +11,7 @@ API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 ITEMS_PRICE_LIMITS = {
     "Sport Gloves | Bronze Morph": 150,  # Максимальная цена для этих перчаток
     "Talon Knife": 300,  # Максимальная цена для ножей
-    "AWP Asiimov (Battle-Scarred)": 75  # Максимальная цена для AWP Asiimov (Battle-Scarred)
+    "AWP | Asiimov (Battle-Scarred)": 75  # Максимальная цена для AWP Asiimov (Battle-Scarred)
 }
 
 def send_telegram_message(message):
