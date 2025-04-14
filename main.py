@@ -23,6 +23,8 @@ def check_price():
         soup = BeautifulSoup(response.text, "html.parser")
 
         items = soup.find_all("div", class_="item-outer")
+        print(f"Полученные товары: {len(items)}")  # Логируем количество товаров
+
         if not items:
             print("Не найдено товаров на странице.")
             return
@@ -42,6 +44,8 @@ def check_price():
 
             name = name_tag.get_text(strip=True)
 
+            print(f"Найден товар: {name} с ценой {price}")  # Логируем найденный товар
+
             if SKIN_NAME in name and price <= PRICE_LIMIT:
                 bot.send_message(chat_id=CHAT_ID, text=f"💥 Найден {name} за {price}€\n{URL}")
                 break
@@ -53,5 +57,4 @@ def check_price():
 while True:
     check_price()
     time.sleep(300)  # Проверка каждые 5 минут
-
 
