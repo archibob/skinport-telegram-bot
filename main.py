@@ -8,8 +8,7 @@ API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
 # 🧲 Ключевые слова и максимальные цены (в евро)
 ITEMS_PRICE_LIMITS = {
-    "Talon Knife": 300,  # Ножи Talon
-    "Sport Gloves | Bronze Morph": 150,  # Ищем только эти перчатки
+    "Sport Gloves | Bronze Morph": 150,  # Ищем именно этот скин
 }
 
 # Храним уникальные идентификаторы уже найденных товаров
@@ -56,8 +55,12 @@ def check_items():
             item_url = item.get("item_page", "")  # Используем item_page для точной ссылки
             unique_id = f"{market_name}:{price}"
 
+            # Логирование всех предметов для проверки
+            print(f"Товар: {market_name}, Цена: {price}, Ссылка: {item_url}")
+
             if price is not None:
                 for keyword, max_price in ITEMS_PRICE_LIMITS.items():
+                    # Ищем точное совпадение с названием перчаток
                     if keyword.lower() in market_name.lower() and price <= max_price and unique_id not in found_items:
                         message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
                         print(message)
