@@ -58,7 +58,7 @@ def check_items():
             # Логирование для отладки
             print(f"Проверка товара: {market_name}, Цена: {price}, Ссылка: {item_url}")
 
-            # Проверка на Sport Gloves | Bronze Morph
+            # Проверка на Sport Gloves | Bronze Morph (с более гибким выражением)
             if re.search(r"Sport\s*Gloves\s*\|\s*Bronze\s*Morph", market_name, re.IGNORECASE):
                 print(f"Найдено соответствие для перчаток: {market_name}")
                 if price is not None and price <= ITEMS_PRICE_LIMITS["Sport Gloves | Bronze Morph"]:
@@ -76,7 +76,7 @@ def check_items():
                     send_telegram_message(message)
                     matches_found += 1
 
-            # Проверка на AWP | Asiimov (Battle-Scarred)
+            # Проверка на AWP | Asiimov (Battle-Scarred) (с более гибким выражением)
             if re.search(r"AWP\s*\|\s*Asiimov", market_name, re.IGNORECASE):
                 print(f"Найдено соответствие для AWP Asiimov: {market_name}")
                 if "Battle-Scarred" in market_name and price is not None and price <= ITEMS_PRICE_LIMITS["AWP | Asiimov (Battle-Scarred)"]:
