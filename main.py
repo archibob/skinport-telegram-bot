@@ -1,8 +1,9 @@
 import requests
 import time
 import re
+import asyncio
 from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, MessageHandler, filters
 
 # 🔧 Настройки
 TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
@@ -16,10 +17,8 @@ ITEMS_PRICE_LIMITS = {
     "AWP | Asiimov (Battle-Scarred)": 75
 }
 
-# Список предметов для отслеживания
-tracked_items = list(ITEMS_PRICE_LIMITS.keys())
-
-def send_telegram_message(message: str):
+# Функция отправки сообщения в Telegram
+def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
     try:
@@ -29,38 +28,32 @@ def send_telegram_message(message: str):
     except Exception as e:
         print("Ошибка Telegram:", e)
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привет! Я готов искать предметы для тебя! Используй /add <item>, /remove <item> и /list для управления предметами.")
-
-async def add_item(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if context.args:
-        item_name = " ".join(context.args)
-        if item_name not in tracked_items:
-            tracked_items.append(item_name)
-            await update.message.reply_text(f"Добавлен предмет для отслеживания: {item_name}")
+# Функция для добавления предметов
+async def add_item(update: Update, context):
+    item_name = " ".join(context.args)
+    if item_name:
+        if item_name not in ITEMS_PRICE_LIMITS:
+            ITEMS_PRICE_LIMITS[item_name] = float('inf')  # По умолчанию без ограничения
+            await update.message.reply_text(f"✅ Предмет '{item_name}' добавлен в список для поиска.")
         else:
-            await update.message.reply_text(f"Предмет {item_name} уже отслеживается.")
+            await update.message.reply_text(f"❗ Предмет '{item_name}' уже в списке.")
     else:
-        await update.message.reply_text("Пожалуйста, укажите название предмета для добавления.")
+        await update.message.reply_text("⚠️ Пожалуйста, укажите имя предмета.")
 
-async def remove_item(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if context.args:
-        item_name = " ".join(context.args)
-        if item_name in tracked_items:
-            tracked_items.remove(item_name)
-            await update.message.reply_text(f"Удален предмет из отслеживания: {item_name}")
-        else:
-            await update.message.reply_text(f"Предмет {item_name} не найден в списке.")
+# Функция для удаления предметов
+async def remove_item(update: Update, context):
+    item_name = " ".join(context.args)
+    if item_name in ITEMS_PRICE_LIMITS:
+        del ITEMS_PRICE_LIMITS[item_name]
+        await update.message.reply_text(f"✅ Предмет '{item_name}' удален из списка для поиска.")
     else:
-        await update.message.reply_text("Пожалуйста, укажите название предмета для удаления.")
+        await update.message.reply_text(f"❗ Предмет '{item_name}' не найден в списке.")
 
-async def list_items(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if tracked_items:
-        items = "\n".join(tracked_items)
-        await update.message.reply_text(f"Список отслеживаемых предметов:\n{items}")
-    else:
-        await update.message.reply_text("Нет предметов для отслеживания.")
+# Функция для старта бота
+async def start(update: Update, context):
+    await update.message.reply_text("Привет! Я бот для отслеживания предметов на Skinport. Используй /add <название> для добавления предметов.")
 
+# Функция для проверки предметов на Skinport
 def check_items():
     try:
         headers = {
@@ -95,12 +88,12 @@ def check_items():
             # Логирование для отладки
             print(f"Проверка товара: {market_name}, Цена: {price}, Ссылка: {item_url}")
 
-            # Проверка на отслеживаемые предметы
-            for tracked_item in tracked_items:
-                if re.search(tracked_item, market_name, re.IGNORECASE):
-                    print(f"Найдено соответствие для: {market_name}")
-                    if price is not None and price <= ITEMS_PRICE_LIMITS.get(tracked_item, 0):
-                        message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
+            # Проходим по всем предметам, которые есть в списке
+            for item_name in ITEMS_PRICE_LIMITS:
+                if re.search(item_name, market_name, re.IGNORECASE):
+                    print(f"Найдено соответствие для {item_name}: {market_name}")
+                    if price is not None and price <= ITEMS_PRICE_LIMITS[item_name]:
+                        message = f"🔔 Найден товар:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
                         print(message)
                         send_telegram_message(message)
                         matches_found += 1
@@ -114,24 +107,28 @@ def check_items():
         print(error_msg)
         send_telegram_message(error_msg)
 
-# 🔁 Запуск в цикле
+# Запуск проверки предметов в цикле
+async def monitor_items():
+    while True:
+        check_items()
+        await asyncio.sleep(120)  # Пауза 2 минуты
+
+# Основная функция
 async def main():
+    # Создаем и запускаем приложение Telegram
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
-    # Обработчики команд
+    # Добавляем обработчики команд
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("add", add_item))
     application.add_handler(CommandHandler("remove", remove_item))
-    application.add_handler(CommandHandler("list", list_items))
 
-    # Запуск бота
+    # Запускаем мониторинг предметов
+    asyncio.create_task(monitor_items())
+
+    # Запускаем polling
     await application.run_polling()
 
-if __name__ == "__main__":
-    import asyncio
+if __name__ == '__main__':
+    # Не используем asyncio.run(), так как event loop уже используется
     asyncio.run(main())
-
-    # Периодический запуск функции проверки товаров
-    while True:
-        check_items()
-        time.sleep(120)  # Пауза 2 минуты
