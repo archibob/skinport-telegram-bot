@@ -6,12 +6,14 @@ TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
 TELEGRAM_CHAT_ID = "388895285"
 API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
-# 🧲 Ключевые слова, по которым фильтруем нужные предметы
-KEYWORDS = ["Talon Knife", "Sport Gloves | Bronze Morph"]  # Ищем ножи "Talon Knife" и перчатки "Sport Gloves | Bronze Morph"
-MAX_PRICE = 20000  # Максимальная цена в ценах Skinport (20000 = 200 EUR)
+# 🧲 Названия предметов и их лимиты по цене (в евро)
+TARGET_ITEMS = {
+    "Talon Knife": 300,
+    "Sport Gloves | Bronze Morph": 150,
+}
 
 # Список уже отправленных товаров (по их ID)
-sent_items = []
+sent_items = set()
 
 def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
@@ -43,52 +45,37 @@ def check_items():
             return
 
         print(f"Получено {len(items)} товаров")
-
         found = False
+
         for item in items:
-            # Логируем всю структуру item, чтобы понять, как выглядят данные
-            print(f"Данные товара: {item}")
-
             market_name = item.get("market_hash_name", "")
-            price = item.get("min_price", 0)
+            offers = item.get("items", [])
 
-            # Логируем цену, чтобы понять, что мы получаем
-            print(f"Название: {market_name}, Цена: {price}")
+            for offer in offers:
+                item_id = offer.get("id")
+                price = offer.get("price")
 
-            # Проверка на None для цены
-            if price is None:
-                print(f"Цена для {market_name} не найдена.")
-                continue  # Пропускаем этот товар, если цена не найдена
+                if item_id in sent_items:
+                    continue
 
-            # Преобразование цены в евро (если цена указана в центрах)
-            price_in_euro = price / 100.0  # Преобразуем цену из центров в евро
+                if price is None:
+                    continue
 
-            # Логируем цену в евро
-            print(f"Цена в евро: {price_in_euro:.2f} EUR")
+                price_in_euro = price / 100.0
 
-            # Проверка на наличие ключевых слов в названии предмета
-            if any(keyword.lower() in market_name.lower() for keyword in KEYWORDS):
-                # Проверка на соответствие цене (в евро)
-                if price_in_euro <= MAX_PRICE:
-                    # Пробуем извлечь ID товара, если оно есть
-                    item_id = item.get("id", None)
-
-                    # Если ID не найден, пропускаем этот товар
-                    if not item_id:
-                        print(f"Товар {market_name} не имеет ID, пропускаем.")
-                        continue
-
-                    # Проверяем, был ли уже отправлен этот товар
-                    if item_id not in sent_items:
-                        message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price_in_euro:.2f} EUR"
+                for keyword, max_price in TARGET_ITEMS.items():
+                    if keyword.lower() in market_name.lower() and price_in_euro <= max_price:
+                        message = f"🔔 Найдено:\n{market_name}\n💶 Цена: {price_in_euro:.2f} EUR"
                         print(message)
                         send_telegram_message(message)
-                        sent_items.append(item_id)  # Добавляем ID товара в список отправленных
+                        sent_items.add(item_id)
                         found = True
+                        break  # Не продолжаем проверку других ключевых слов
 
         if not found:
             print("Ничего не найдено.")
             send_telegram_message("❗️ Не найдено товаров по запросу.")
+
     except Exception as e:
         error_msg = f"❗ Ошибка при выполнении скрипта: {e}"
         print(error_msg)
