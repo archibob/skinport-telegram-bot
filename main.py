@@ -27,14 +27,16 @@ def send_telegram_message(message):
     except Exception as e:
         print("Ошибка Telegram:", e)
 
-def check_items():
+def check_items(page=1):
     try:
         headers = {
             "Accept-Encoding": "br",
             "User-Agent": "Mozilla/5.0"
         }
-        response = requests.get(API_URL, headers=headers)
-        print(f"Status Code: {response.status_code}")
+
+        # Добавим пагинацию
+        response = requests.get(f"{API_URL}&page={page}", headers=headers)
+        print(f"Страница {page}: Статус запроса {response.status_code}")
 
         if response.status_code != 200:
             error_text = f"❌ Ошибка при запросе к Skinport: {response.status_code}\n{response.text}"
@@ -49,7 +51,7 @@ def check_items():
             send_telegram_message(f"❗️ Ошибка при парсинге JSON: {e}")
             return
 
-        print(f"Получено {len(items)} товаров")
+        print(f"Страница {page}: Получено {len(items)} товаров")
 
         # Логируем все полученные товары для отладки
         for item in items:
@@ -97,6 +99,10 @@ def check_items():
         if not found:
             print("Ничего не найдено.")
             send_telegram_message("⚠️ Ничего не найдено из интересующих предметов.")
+
+        # Если на текущей странице есть еще товары, делаем запрос к следующей странице
+        if len(items) > 0:
+            check_items(page + 1)
 
     except Exception as e:
         error_msg = f"❗ Ошибка при выполнении скрипта: {e}"
