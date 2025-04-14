@@ -40,6 +40,9 @@ def check_items():
             send_telegram_message(error_text)
             return
 
+        # Выводим весь HTML для отладки
+        print("Полученный HTML:\n", response.text[:1000])  # Печатаем первые 1000 символов
+
         # Парсим HTML страницу
         soup = BeautifulSoup(response.text, 'html.parser')
         items = soup.find_all("div", class_="item-card")
