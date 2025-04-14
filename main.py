@@ -8,7 +8,6 @@ API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
 # 🧲 Ключевые слова, по которым фильтруем нужные предметы
 KEYWORDS = ["Talon Knife", "Sport Gloves | Bronze Morph"]  # Ищем ножи "Talon Knife" и перчатки "Sport Gloves | Bronze Morph"
-MIN_PRICE = 10000  # Минимальная цена в ценах Skinport (10000 = 100 EUR)
 MAX_PRICE = 20000  # Максимальная цена в ценах Skinport (20000 = 200 EUR)
 
 # Список уже отправленных товаров (по их ID)
@@ -70,7 +69,7 @@ def check_items():
             # Проверка на наличие ключевых слов в названии предмета
             if any(keyword.lower() in market_name.lower() for keyword in KEYWORDS):
                 # Проверка на соответствие цене (в евро)
-                if MIN_PRICE <= price_in_euro <= MAX_PRICE:
+                if price_in_euro <= MAX_PRICE:
                     # Пробуем извлечь ID товара, если оно есть
                     item_id = item.get("id", None)
 
