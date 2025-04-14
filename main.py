@@ -9,7 +9,7 @@ API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 # 🧲 Ключевые слова и максимальные цены (в евро)
 ITEMS_PRICE_LIMITS = {
     "Talon Knife": 300,
-    "Sport Gloves": 150
+    "Gloves": 150  # Изменено для поиска всех типов перчаток
 }
 
 # Храним уникальные идентификаторы уже найденных товаров
@@ -53,7 +53,7 @@ def check_items():
         for item in items:
             market_name = item.get("market_hash_name", "")
             price = item.get("min_price", None)
-            item_url = item.get("url", "")
+            item_url = item.get("item_page", "")  # Используем item_page для точной ссылки
             unique_id = f"{market_name}:{price}"
 
             if price is not None:
