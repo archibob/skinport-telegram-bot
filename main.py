@@ -73,7 +73,8 @@ def check_items():
                     found = True
 
                 # Логика для поиска AWP Asiimov (Battle-Scarred)
-                if "AWP Asiimov" in market_name and "Battle-Scarred" in market_name:
+                # Регулярное выражение, чтобы находить AWP Asiimov с Battle-Scarred
+                if re.search(r"AWP\s*\|\s*Asiimov", market_name, re.IGNORECASE) and "Battle-Scarred" in market_name:
                     print(f"Проверка AWP Asiimov: {market_name} с ценой {price} евро")
                     if price is not None and price <= ITEMS_PRICE_LIMITS["AWP Asiimov (Battle-Scarred)"]:
                         message = f"🔔 Найден AWP Asiimov (Battle-Scarred):\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
