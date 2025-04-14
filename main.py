@@ -8,7 +8,7 @@ API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
 # 🧲 Ключевые слова, по которым фильтруем нужные предметы
 KEYWORDS = ["Коготь", "Спортивные перчатки | Окисление бронзы"]
-
+MAX_PRICE = 15000  # 150 евро в центах
 
 def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
@@ -46,17 +46,17 @@ def check_items():
             market_name = item.get("market_hash_name", "")
             price = item.get("min_price", 0)
             if any(keyword.lower() in market_name.lower() for keyword in KEYWORDS):
-                # Фильтруем перчатки по цене:
-                if "Перчатки" in market_name and price > 15000:
-                    continue
-                message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price / 100:.2f} EUR"
-                print(message)
-                send_telegram_message(message)
-                found = True
+                # Отправляем информацию, если цена меньше или равна максимальной
+                if price <= MAX_PRICE:
+                    message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price / 100:.2f} EUR"
+                    print(message)
+                    send_telegram_message(message)
+                    found = True
 
         if not found:
             print("Ничего не найдено.")
             send_telegram_message("⚠️ Ничего не найдено из интересующих предметов.")
+
     except Exception as e:
         error_msg = f"❗ Ошибка при выполнении скрипта: {e}"
         print(error_msg)
