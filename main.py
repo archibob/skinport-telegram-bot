@@ -9,7 +9,7 @@ API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 # 🧲 Названия предметов и их лимиты по цене (в евро)
 TARGET_ITEMS = {
     "Talon Knife": 300,
-    "Sport Gloves | Bronze Morph": 150,
+    "Sport Gloves | Bronze Morph": 150
 }
 
 # Список уже отправленных товаров (по их ID)
@@ -53,15 +53,15 @@ def check_items():
 
             for offer in offers:
                 item_id = offer.get("id")
-                price = offer.get("price")
+                price_cents = offer.get("price")
 
-                if item_id in sent_items:
+                if item_id in sent_items or price_cents is None:
                     continue
 
-                if price is None:
-                    continue
+                price_in_euro = price_cents / 100.0
 
-                price_in_euro = price / 100.0
+                print(f"Название: {market_name}, Цена: {price_cents}")
+                print(f"Цена в евро: {price_in_euro:.2f} EUR")
 
                 for keyword, max_price in TARGET_ITEMS.items():
                     if keyword.lower() in market_name.lower() and price_in_euro <= max_price:
@@ -70,7 +70,7 @@ def check_items():
                         send_telegram_message(message)
                         sent_items.add(item_id)
                         found = True
-                        break  # Не продолжаем проверку других ключевых слов
+                        break
 
         if not found:
             print("Ничего не найдено.")
