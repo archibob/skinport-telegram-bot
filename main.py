@@ -63,6 +63,7 @@ def check_items():
                 print(f"Цена товара: {price_eur:.2f} EUR")
 
                 # Ищем ключевое слово в названии товара и проверяем цену
+                matched = False
                 for keyword, min_price in ITEMS_PRICE_LIMITS.items():
                     if keyword.lower() in market_name.lower() and price <= min_price and item_id not in found_items:
                         message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price_eur:.2f} EUR"
@@ -70,8 +71,13 @@ def check_items():
                         send_telegram_message(message)
                         found_items.add(item_id)  # Добавляем ID в список найденных товаров
                         found = True
+                        matched = True
                         break
-
+                
+                # Если товар не подошел по ключевому слову или цене, выводим, что он не прошел
+                if not matched:
+                    print(f"Товар {market_name} не подходит по ключевому слову или цене.")
+                    
         if not found:
             print("Ничего не найдено.")
             send_telegram_message("⚠️ Ничего не найдено из интересующих предметов.")
