@@ -32,15 +32,15 @@ def check_items():
         print(f"Status Code: {response.status_code}")
         print("Response Headers:", response.headers)  # Добавим вывод заголовков
 
+        # Печатаем содержимое тела ответа
+        response_content = response.content.decode('utf-8', errors='ignore')
+        print("Response content:", response_content)
+
         if response.status_code != 200:
-            error_text = f"❌ Ошибка при запросе к Skinport: {response.status_code}\n{response.text}"
+            error_text = f"❌ Ошибка при запросе к Skinport: {response.status_code}\n{response_content}"
             print(error_text)
             send_telegram_message(error_text)
             return
-
-        # Проверка содержимого ответа
-        response_content = response.content.decode('utf-8', errors='ignore')
-        print("Response content:", response_content)
 
         if not response_content.strip():  # Проверяем, что тело ответа не пустое
             error_msg = "❗ Ответ от API Skinport пустой!"
