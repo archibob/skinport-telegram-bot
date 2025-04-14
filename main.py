@@ -42,8 +42,8 @@ def check_items():
             return
 
         print(f"Получено {len(items)} товаров")
-        found = False
 
+        found = False
         for item in items:
             market_name = item.get("market_hash_name", "")
             offers = item.get("items", [])
@@ -63,12 +63,13 @@ def check_items():
                 print(f"    Цена товара: {price_eur} EUR")
 
                 for keyword, max_price in TARGET_ITEMS.items():
-                    if keyword.lower() in market_name.lower() and price_eur <= max_price:
-                        message = f"🔔 Найдено:\n{market_name}\n💶 Цена: {price_eur} EUR"
-                        print(message)
-                        send_telegram_message(message)
-                        found = True
-                        break
+                    if keyword.lower() in market_name.lower():
+                        if price_eur <= max_price:
+                            message = f"🔔 Найдено:\n{market_name}\n💶 Цена: {price_eur} EUR"
+                            print(message)
+                            send_telegram_message(message)
+                            found = True
+                            break
 
         if not found:
             print("Ничего не найдено.")
