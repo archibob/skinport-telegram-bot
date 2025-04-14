@@ -1,23 +1,22 @@
 import requests
 import time
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler
 
 # 🔧 Настройки
 TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
 TELEGRAM_CHAT_ID = "388895285"
 API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
-# 🧲 Названия предметов и их лимиты по цене (в евро)
-TARGET_ITEMS = {
-    "Talon Knife": 300,
-    "Sport Gloves | Bronze Morph": 150
+# 🧲 Ключевые слова и минимальные цены для каждого типа предмета
+ITEMS_PRICE_LIMITS = {
+    "Коготь": 30000,  # 300 евро в центах
+    "Спортивные перчатки | Окисление бронзы": 15000,  # 150 евро в центах
+    "AK-47 | Redline": 25000  # Примерная цена для АК-47 | Redline, 250 евро в центах
 }
 
-# Список уже отправленных товаров (по их ID)
-sent_items = set()
+# Храним ID уже найденных товаров
+found_items = set()
 
-async def send_telegram_message(message):
+def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
     try:
@@ -27,7 +26,7 @@ async def send_telegram_message(message):
     except Exception as e:
         print("Ошибка Telegram:", e)
 
-async def check_items():
+def check_items():
     try:
         headers = {"Accept-Encoding": "br"}
         response = requests.get(API_URL, headers=headers)
@@ -36,75 +35,53 @@ async def check_items():
         if response.status_code != 200:
             error_text = f"❌ Ошибка при запросе к Skinport: {response.status_code}\n{response.text}"
             print(error_text)
-            await send_telegram_message(error_text)
+            send_telegram_message(error_text)
             return
 
         try:
             items = response.json()
         except Exception as e:
             print("Ошибка при парсинге JSON:", e)
-            await send_telegram_message(f"❗️ Ошибка при парсинге JSON: {e}")
+            send_telegram_message(f"❗️ Ошибка при парсинге JSON: {e}")
             return
 
         print(f"Получено {len(items)} товаров")
-        found = False
 
+        found = False
         for item in items:
             market_name = item.get("market_hash_name", "")
-            offers = item.get("items", [])
+            price = item.get("min_price", None)
+            item_id = item.get("id", None)
 
-            for offer in offers:
-                item_id = offer.get("id")
-                price_eur = offer.get("price")
+            # Выводим все данные о товаре для отладки
+            print(f"Проверяем товар: {market_name}")
+            print(f"Цена сырой: {price}")
 
-                if item_id in sent_items or price_eur is None:
-                    continue
+            # Если цена есть, выводим её в евро
+            if price is not None:
+                price_eur = price / 100  # Цена в евро
+                print(f"Цена товара: {price_eur:.2f} EUR")
 
-                print(f"Название: {market_name}, Цена: {price_eur:.2f} EUR")
-
-                for keyword, max_price in TARGET_ITEMS.items():
-                    if keyword.lower() in market_name.lower() and price_eur <= max_price:
-                        message = f"🔔 Найдено:\n{market_name}\n💶 Цена: {price_eur:.2f} EUR"
+                # Ищем ключевое слово в названии товара и проверяем цену
+                for keyword, min_price in ITEMS_PRICE_LIMITS.items():
+                    if keyword.lower() in market_name.lower() and price <= min_price and item_id not in found_items:
+                        message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price_eur:.2f} EUR"
                         print(message)
-                        await send_telegram_message(message)
-                        sent_items.add(item_id)
+                        send_telegram_message(message)
+                        found_items.add(item_id)  # Добавляем ID в список найденных товаров
                         found = True
                         break
 
         if not found:
             print("Ничего не найдено.")
-            await send_telegram_message("❗️ Не найдено товаров по запросу.")
+            send_telegram_message("⚠️ Ничего не найдено из интересующих предметов.")
 
     except Exception as e:
         error_msg = f"❗ Ошибка при выполнении скрипта: {e}"
         print(error_msg)
-        await send_telegram_message(error_msg)
+        send_telegram_message(error_msg)
 
-# Функция для обработки команды /start
-async def start(update, context):
-    keyboard = [
-        [InlineKeyboardButton("Поиск", callback_data='search')]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text('Привет! Нажми на кнопку для поиска товаров.', reply_markup=reply_markup)
-
-# Функция для обработки нажатия кнопки
-async def button(update, context):
-    query = update.callback_query
-    await query.answer()
-
-    if query.data == 'search':
-        await check_items()  # Ваш код для поиска товаров и отправки сообщений
-
-# Основная функция
-def main():
-    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
-
-    # Добавление обработчиков
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CallbackQueryHandler(button))
-
-    application.run_polling()
-
-if __name__ == '__main__':
-    main()
+# 🔁 Запуск в цикле
+while True:
+    check_items()
+    time.sleep(60)  # Пауза 60 секунд
