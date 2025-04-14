@@ -1,13 +1,14 @@
 import requests
 import time
+import brotli
 
 # 🔧 Настройки
-TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
-TELEGRAM_CHAT_ID = "388895285"
+TELEGRAM_BOT_TOKEN = "your-telegram-bot-token"
+TELEGRAM_CHAT_ID = "your-telegram-chat-id"
 API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
 # 🧲 Ключевые слова, по которым фильтруем нужные предметы
-KEYWORDS = ["Коготь", "Сажа"]  # Добавь свои ключи
+KEYWORDS = ["Коготь", "Сажа"]
 
 # Заголовки для запроса с добавленной поддержкой Brotli
 HEADERS = {
@@ -30,25 +31,31 @@ def check_items():
     try:
         response = requests.get(API_URL, headers=HEADERS)  # Добавлены заголовки
         print(f"Status Code: {response.status_code}")
-        print("Response Headers:", response.headers)  # Добавим вывод заголовков
-
-        # Печатаем содержимое тела ответа
-        response_content = response.content.decode('utf-8', errors='ignore')
-        print("Response content:", response_content)
-
+        
+        # Проверим, если сервер вернул статус 200
         if response.status_code != 200:
-            error_text = f"❌ Ошибка при запросе к Skinport: {response.status_code}\n{response_content}"
+            error_text = f"❌ Ошибка при запросе к Skinport: {response.status_code}\n{response.text}"
             print(error_text)
             send_telegram_message(error_text)
             return
 
-        if not response_content.strip():  # Проверяем, что тело ответа не пустое
-            error_msg = "❗ Ответ от API Skinport пустой!"
+        # Проверка типа контента
+        content_type = response.headers.get("Content-Type")
+        if "application/json" not in content_type:
+            error_msg = f"❗ Ответ не в формате JSON. Получен тип: {content_type}"
             print(error_msg)
             send_telegram_message(error_msg)
             return
 
-        # Проверим, если ответ действительно в формате JSON
+        # Проверим, сжаты ли данные с помощью Brotli
+        if 'br' in response.headers.get('Content-Encoding', ''):
+            response_content = brotli.decompress(response.content).decode('utf-8')
+        else:
+            response_content = response.text  # если не сжато, просто читаем как текст
+
+        print("Response content:", response_content)
+
+        # Теперь пробуем распарсить JSON
         try:
             items = response.json()  # Пробуем распарсить как JSON
             print(f"Получено {len(items)} товаров")
@@ -58,6 +65,7 @@ def check_items():
             send_telegram_message(error_msg)
             return
 
+        # Ищем предметы с нужными ключевыми словами
         found = False
         for item in items:
             market_name = item.get("market_hash_name", "")
