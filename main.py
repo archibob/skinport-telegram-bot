@@ -7,7 +7,7 @@ TELEGRAM_CHAT_ID = "388895285"
 API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
 # 🧲 Ключевые слова, по которым фильтруем нужные предметы
-KEYWORDS = ["Коготь", "Sport Gloves | Bronze Morph"]  # Ищем ножи "Коготь" и перчатки "Окисление бронзы"
+KEYWORDS = ["Talon Knife", "Sport Gloves | Bronze Morph"]  # Ищем ножи "Talon Knife" и перчатки "Sport Gloves | Bronze Morph"
 
 def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
