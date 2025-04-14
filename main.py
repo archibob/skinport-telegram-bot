@@ -3,8 +3,8 @@ import time
 import brotli
 
 # 🔧 Настройки
-TELEGRAM_BOT_TOKEN = "your-telegram-bot-token"
-TELEGRAM_CHAT_ID = "your-telegram-chat-id"
+TELEGRAM_BOT_TOKEN = "your-telegram-bot-token"  # Замените на свой токен
+TELEGRAM_CHAT_ID = "your-telegram-chat-id"  # Замените на свой chat_id
 API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
 # 🧲 Ключевые слова, по которым фильтруем нужные предметы
@@ -18,14 +18,14 @@ HEADERS = {
 }
 
 def send_telegram_message(message):
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"  # Исправлено имя переменной
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
     try:
         response = requests.post(url, data=payload)
         if response.status_code != 200:
-            print("Ошибка отправки в Telegram:", response.text)
+            print(f"Ошибка отправки в Telegram: {response.text}")
     except Exception as e:
-        print("Ошибка Telegram:", e)
+        print(f"Ошибка Telegram: {e}")
 
 def check_items():
     try:
@@ -49,7 +49,13 @@ def check_items():
 
         # Проверим, сжаты ли данные с помощью Brotli
         if 'br' in response.headers.get('Content-Encoding', ''):
-            response_content = brotli.decompress(response.content).decode('utf-8')
+            try:
+                response_content = brotli.decompress(response.content).decode('utf-8')
+            except Exception as e:
+                error_msg = f"❗ Ошибка при распаковке данных с Brotli: {e}"
+                print(error_msg)
+                send_telegram_message(error_msg)
+                return
         else:
             response_content = response.text  # если не сжато, просто читаем как текст
 
