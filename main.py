@@ -80,6 +80,8 @@ def check_items():
                         print(f"Найден AWP Asiimov: {message}")
                         send_telegram_message(message)
                         found = True
+                    else:
+                        print(f"AWP Asiimov не подходит по цене: {price} или товар уже был найден: {market_name}")
 
         if not found:
             print("Ничего не найдено.")
