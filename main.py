@@ -53,7 +53,7 @@ def check_items():
         for item in items:
             market_name = item.get("market_hash_name", "")
             price = item.get("min_price", None)
-            item_url = item.get("url", "")
+            item_url = item.get("url", "")  # Ссылка на товар
             unique_id = f"{market_name}:{price}"
 
             if price is not None:
