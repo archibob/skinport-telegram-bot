@@ -1,48 +1,56 @@
 import requests
 import time
 
-# Telegram bot token и chat_id
+# 🔧 Настройки
 TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
 TELEGRAM_CHAT_ID = "388895285"
-
-# Настройки отслеживаемого предмета
-TARGET_ITEMS = [
-    {
-        "name_contains": "Талон",
-        "price_limit": 300  # В евро
-    }
-]
-
-# URL API Skinport
 API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
-def send_message(text):
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": CHAT_ID,
-        "text": text,
-        "parse_mode": "HTML"
-    }
-    requests.post(url, data=payload)
+# 🧲 Ключевые слова, по которым фильтруем нужные предметы
+KEYWORDS = ["Коготь", "Сажа"]  # Добавь свои ключи
+
+def send_telegram_message(message):
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    payload = {"chat_id": CHAT_ID, "text": message}
+    try:
+        response = requests.post(url, data=payload)
+        if response.status_code != 200:
+            print("Ошибка отправки в Telegram:", response.text)
+    except Exception as e:
+        print("Ошибка Telegram:", e)
 
 def check_items():
-    response = requests.get(API_URL)
-    if response.status_code != 200:
-        print("Ошибка при запросе к API Skinport")
-        return
+    try:
+        response = requests.get(API_URL)
+        print(f"Status Code: {response.status_code}")
 
-    items = response.json()
-    print(f"Получено {len(items)} предметов")
+        if response.status_code != 200:
+            error_text = f"❌ Ошибка при запросе к Skinport: {response.status_code}\n{response.text}"
+            print(error_text)
+            send_telegram_message(error_text)
+            return
 
-    for item in items:
-        for target in TARGET_ITEMS:
-            name = item.get("market_hash_name", "")
-            price = item.get("price", 0)
-            if target["name_contains"].lower() in name.lower() and price <= target["price_limit"]:
-                msg = f"🔔 Найден предмет: <b>{name}</b>\n💸 Цена: {price} €\n🔗 {item.get('url')}"
-                send_message(msg)
+        items = response.json()
+        print(f"Получено {len(items)} товаров")
 
-if __name__ == "__main__":
-    while True:
-        check_items()
-        time.sleep(60)  # Проверка каждую минуту
+        found = False
+        for item in items:
+            market_name = item.get("market_hash_name", "")
+            price = item.get("min_price", 0)
+            if any(keyword.lower() in market_name.lower() for keyword in KEYWORDS):
+                message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price / 100:.2f} EUR"
+                print(message)
+                send_telegram_message(message)
+                found = True
+
+        if not found:
+            print("Ничего не найдено.")
+    except Exception as e:
+        error_msg = f"❗ Ошибка при выполнении скрипта: {e}"
+        print(error_msg)
+        send_telegram_message(error_msg)
+
+# 🔁 Запуск в цикле
+while True:
+    check_items()
+    time.sleep(60)  # Пауза 60 секунд
