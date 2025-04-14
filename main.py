@@ -1,13 +1,12 @@
 import requests
-import time
+from bs4 import BeautifulSoup
 import re
+import time
 
-# 🔧 Настройки
 TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
 TELEGRAM_CHAT_ID = "388895285"
-API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
+BASE_URL = "https://skinport.com/ru/market?cat=Rifle&item=Asiimov&type=AWP&exterior=1&sort=price&order=asc"
 
-# 🧲 Ключевые слова и максимальные цены (в евро)
 ITEMS_PRICE_LIMITS = {
     "Sport Gloves | Bronze Morph": 150,
     "Talon Knife": 300,
@@ -27,38 +26,31 @@ def send_telegram_message(message):
 def check_items():
     try:
         headers = {
-            "Accept-Encoding": "br",
             "User-Agent": "Mozilla/5.0"
         }
-        response = requests.get(API_URL, headers=headers)
-        print(f"Status Code: {response.status_code}")
-
+        response = requests.get(BASE_URL, headers=headers)
         if response.status_code != 200:
             error_text = f"❌ Ошибка при запросе к Skinport: {response.status_code}\n{response.text}"
             print(error_text)
             send_telegram_message(error_text)
             return
 
-        try:
-            items = response.json()
-        except Exception as e:
-            print("Ошибка при парсинге JSON:", e)
-            send_telegram_message(f"❗️ Ошибка при парсинге JSON: {e}")
-            return
+        # Парсинг HTML
+        soup = BeautifulSoup(response.text, 'html.parser')
 
-        print(f"Получено {len(items)} товаров")
+        # Ищем все товары
+        items = soup.find_all("div", class_="ItemInfo__name")
 
         matches_found = 0
-
         for item in items:
-            market_name = item.get("market_hash_name", "")
-            price = item.get("min_price", None)
-            item_url = item.get("item_page", "")
-
+            market_name = item.get_text(strip=True)
+            item_url = item.find_parent('a')['href']
+            price = float(item.find_next('div', class_="ItemInfo__price").get_text(strip=True).replace("€", "").replace(",", "."))
+            
             print(f"Товар: {market_name}, Цена: {price}, Ссылка: {item_url}")
 
             if price is not None:
-                # Sport Gloves | Bronze Morph
+                # Проверка для "Sport Gloves | Bronze Morph"
                 if re.search(r"Sport Gloves\s*\|\s*Bronze Morph", market_name) and price <= ITEMS_PRICE_LIMITS["Sport Gloves | Bronze Morph"]:
                     message = f"🔔 Найдены перчатки:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
                     print(message)
