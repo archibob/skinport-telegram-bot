@@ -69,7 +69,7 @@ def check_items():
                 print(f"Найдено соответствие для перчаток: {market_name}")
                 if price <= ITEMS_PRICE_LIMITS["Sport Gloves | Bronze Morph"]:
                     message = f"🔔 Найдены перчатки:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
-                    print(message)
+                    print(f"Отправка сообщения: {message}")
                     send_telegram_message(message)
                     matches_found += 1
 
@@ -78,7 +78,7 @@ def check_items():
                 print(f"Найдено соответствие для ножа: {market_name}")
                 if price <= ITEMS_PRICE_LIMITS["Talon Knife"]:
                     message = f"🔔 Найден нож:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
-                    print(message)
+                    print(f"Отправка сообщения: {message}")
                     send_telegram_message(message)
                     matches_found += 1
 
@@ -87,7 +87,7 @@ def check_items():
                 print(f"Найдено соответствие для AWP Asiimov: {market_name}")
                 if price <= ITEMS_PRICE_LIMITS["AWP | Asiimov (Battle-Scarred)"]:
                     message = f"🔔 Найдена AWP Asiimov (Battle-Scarred):\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
-                    print(message)
+                    print(f"Отправка сообщения: {message}")
                     send_telegram_message(message)
                     matches_found += 1
 
