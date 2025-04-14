@@ -1,6 +1,5 @@
 import requests
 import time
-import re
 
 # 🔧 Настройки
 TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
@@ -9,8 +8,8 @@ API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
 # 🧲 Ключевые слова и максимальные цены (в евро)
 ITEMS_PRICE_LIMITS = {
-    "Sport Gloves | Bronze Morph": 150,  # Максимальная цена для этих перчаток
-    "Talon Knife": 300  # Максимальная цена для ножей
+    "Sport Gloves | Bronze Morph": 150,
+    "Talon Knife": 300
 }
 
 # Храним уникальные идентификаторы уже найденных товаров
@@ -54,28 +53,18 @@ def check_items():
         for item in items:
             market_name = item.get("market_hash_name", "")
             price = item.get("min_price", None)
-            item_url = item.get("item_page", "")  # Используем item_page для точной ссылки
+            item_url = item.get("url", "")
             unique_id = f"{market_name}:{price}"
 
-            # Логируем все товары для отладки
-            print(f"Проверка товара: {market_name}, Цена: {price}, Ссылка: {item_url}")
-
-            # Регулярное выражение для поиска "Sport Gloves | Bronze Morph"
             if price is not None:
-                if re.search(r"Sport Gloves\s*\|\s*Bronze Morph", market_name) and price <= ITEMS_PRICE_LIMITS["Sport Gloves | Bronze Morph"] and unique_id not in found_items:
-                    message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
-                    print(f"Найден товар: {message}")
-                    send_telegram_message(message)
-                    found_items.add(unique_id)
-                    found = True
-
-                # Логика для поиска ножей Talon Knife
-                elif "talon knife" in market_name.lower() and price <= ITEMS_PRICE_LIMITS["Talon Knife"] and unique_id not in found_items:
-                    message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
-                    print(f"Найден нож: {message}")
-                    send_telegram_message(message)
-                    found_items.add(unique_id)
-                    found = True
+                for keyword, max_price in ITEMS_PRICE_LIMITS.items():
+                    if keyword.lower() in market_name.lower() and price <= max_price and unique_id not in found_items:
+                        message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
+                        print(message)
+                        send_telegram_message(message)
+                        found_items.add(unique_id)
+                        found = True
+                        break
 
         if not found:
             print("Ничего не найдено.")
