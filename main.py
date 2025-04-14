@@ -8,8 +8,8 @@ API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
 # 🧲 Ключевые слова и максимальные цены (в евро)
 ITEMS_PRICE_LIMITS = {
-    "Talon Knife": 300,
-    "Gloves": 150  # Изменено для поиска всех типов перчаток
+    "Talon Knife": 300,  # Ножи Talon
+    "Sport Gloves | Bronze Morph": 150,  # Ищем только эти перчатки
 }
 
 # Храним уникальные идентификаторы уже найденных товаров
@@ -58,7 +58,6 @@ def check_items():
 
             if price is not None:
                 for keyword, max_price in ITEMS_PRICE_LIMITS.items():
-                    # Проверяем, если ключевое слово встречается в названии товара и цена не превышает лимит
                     if keyword.lower() in market_name.lower() and price <= max_price and unique_id not in found_items:
                         message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
                         print(message)
