@@ -45,7 +45,7 @@ def check_items():
 
         found = False
         for item in items:
-            # Логируем всю структуру item, чтобы понять, где находится id
+            # Логируем всю структуру item, чтобы понять, как выглядят данные
             print(f"Данные товара: {item}")
 
             market_name = item.get("market_hash_name", "")
