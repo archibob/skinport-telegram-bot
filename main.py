@@ -8,7 +8,8 @@ API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
 # 🧲 Ключевые слова и максимальные цены (в евро)
 ITEMS_PRICE_LIMITS = {
-    "Sport Gloves | Bronze Morph": 150,  # Ищем именно этот скин
+    "Sport Gloves | Bronze Morph": 150,  # Ищем только этот скин
+    "Talon Knife": 300  # Ищем все Talon Knife ниже 300 евро
 }
 
 # Храним уникальные идентификаторы уже найденных товаров
@@ -58,16 +59,21 @@ def check_items():
             # Логирование всех предметов для проверки
             print(f"Товар: {market_name}, Цена: {price}, Ссылка: {item_url}")
 
-            if price is not None:
-                for keyword, max_price in ITEMS_PRICE_LIMITS.items():
-                    # Ищем точное совпадение с названием перчаток
-                    if keyword.lower() in market_name.lower() and price <= max_price and unique_id not in found_items:
-                        message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
-                        print(message)
-                        send_telegram_message(message)
-                        found_items.add(unique_id)
-                        found = True
-                        break
+            # Проверка для Sport Gloves | Bronze Morph
+            if price is not None and "sport gloves" in market_name.lower() and "bronze morph" in market_name.lower() and price <= ITEMS_PRICE_LIMITS["Sport Gloves | Bronze Morph"] and unique_id not in found_items:
+                message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
+                print(message)
+                send_telegram_message(message)
+                found_items.add(unique_id)
+                found = True
+
+            # Проверка для Talon Knife
+            elif price is not None and "talon knife" in market_name.lower() and price <= ITEMS_PRICE_LIMITS["Talon Knife"] and unique_id not in found_items:
+                message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
+                print(message)
+                send_telegram_message(message)
+                found_items.add(unique_id)
+                found = True
 
         if not found:
             print("Ничего не найдено.")
