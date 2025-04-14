@@ -6,7 +6,7 @@ TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
 TELEGRAM_CHAT_ID = "388895285"
 API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
-# 🧲 Ключевые слова, по которым фильтруем нужные предметы
+# 🩲 Ключевые слова, по которым фильтруем нужные предметы
 KEYWORDS = ["Коготь"]  # Ищем только ножи "Коготь"
 
 def send_telegram_message(message):
@@ -51,7 +51,9 @@ def check_items():
                 found = True
 
         if not found:
-            print("Ничего не найдено.")
+            message = "⚠️ Ничего не найдено из интересующих предметов."
+            print(message)
+            send_telegram_message(message)
     except Exception as e:
         error_msg = f"❗ Ошибка при выполнении скрипта: {e}"
         print(error_msg)
