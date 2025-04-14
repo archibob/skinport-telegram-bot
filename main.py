@@ -38,25 +38,19 @@ def check_items():
             send_telegram_message(error_text)
             return
 
-        # Попробуем распаковать данные, если они сжаты
-        if response.headers.get('Content-Encoding') == 'br':  # Проверяем, если сжатие Brotli
-            # Если данные сжаты в Brotli, пытаемся распаковать их вручную
-            import brotlicffi
-            response_content = brotlicffi.decompress(response.content)
-        else:
-            response_content = response.content
-
-        # Пробуем декодировать в UTF-8
+        # Пробуем декодировать с использованием разных кодировок
         try:
-            response_text = response_content.decode('utf-8')
-        except UnicodeDecodeError as e:
-            print(f"Ошибка при декодировании содержимого: {e}")
-            response_text = response_content.decode('latin1', errors='ignore')  # Пытаемся другое кодирование
-            print("Используем latin1 для декодирования")
+            response_content = response.content.decode('utf-8')
+        except UnicodeDecodeError:
+            try:
+                response_content = response.content.decode('latin1')
+            except UnicodeDecodeError as e:
+                print(f"Ошибка при декодировании с latin1: {e}")
+                response_content = response.content.decode('ascii', errors='ignore')
 
-        print("Response text:", response_text)  # Выводим текст ответа
+        print("Response content:", response_content)
 
-        if not response_text.strip():  # Проверяем, что тело ответа не пустое
+        if not response_content.strip():  # Проверяем, что тело ответа не пустое
             error_msg = "❗ Ответ от API Skinport пустой!"
             print(error_msg)
             send_telegram_message(error_msg)
