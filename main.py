@@ -14,9 +14,6 @@ ITEMS_PRICE_LIMITS = {
     "AWP Asiimov (Battle-Scarred)": 75  # Максимальная цена для AWP Asiimov (Battle-Scarred)
 }
 
-# Храним уникальные идентификаторы уже найденных товаров
-found_items = set()
-
 def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
@@ -56,36 +53,32 @@ def check_items():
             market_name = item.get("market_hash_name", "")
             price = item.get("min_price", None)
             item_url = item.get("item_page", "")  # Используем item_page для точной ссылки
-            unique_id = f"{market_name}:{price}"
 
             # Логируем все товары для отладки
             print(f"Товар: {market_name}, Цена: {price}, Ссылка: {item_url}")
 
             # Проверка для "Sport Gloves | Bronze Morph"
             if price is not None:
-                if re.search(r"Sport Gloves\s*\|\s*Bronze Morph", market_name) and price <= ITEMS_PRICE_LIMITS["Sport Gloves | Bronze Morph"] and unique_id not in found_items:
+                if re.search(r"Sport Gloves\s*\|\s*Bronze Morph", market_name) and price <= ITEMS_PRICE_LIMITS["Sport Gloves | Bronze Morph"]:
                     message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
                     print(f"Найден товар: {message}")
                     send_telegram_message(message)
-                    found_items.add(unique_id)
                     found = True
 
                 # Логика для поиска ножей Talon Knife
-                elif "talon knife" in market_name.lower() and price <= ITEMS_PRICE_LIMITS["Talon Knife"] and unique_id not in found_items:
+                elif "talon knife" in market_name.lower() and price <= ITEMS_PRICE_LIMITS["Talon Knife"]:
                     message = f"🔔 Найден нож:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
                     print(f"Найден нож: {message}")
                     send_telegram_message(message)
-                    found_items.add(unique_id)
                     found = True
 
                 # Логика для поиска AWP Asiimov (Battle-Scarred)
                 if "AWP Asiimov" in market_name and "Battle-Scarred" in market_name:
                     print(f"Проверка AWP Asiimov: {market_name} с ценой {price} евро")
-                    if price is not None and price <= ITEMS_PRICE_LIMITS["AWP Asiimov (Battle-Scarred)"] and unique_id not in found_items:
+                    if price is not None and price <= ITEMS_PRICE_LIMITS["AWP Asiimov (Battle-Scarred)"]:
                         message = f"🔔 Найден AWP Asiimov (Battle-Scarred):\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
                         print(f"Найден AWP Asiimov: {message}")
                         send_telegram_message(message)
-                        found_items.add(unique_id)
                         found = True
 
         if not found:
