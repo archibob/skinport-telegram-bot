@@ -52,7 +52,7 @@ def check_items():
 
             market_name = item.get("market_hash_name", "")
             price = item.get("min_price", None)
-            item_url = item.get("url", "Ссылка не доступна")  # Попробуем использовать 'url' из данных
+            item_url = item.get("item_page", "Ссылка не доступна")  # Используем item_page для ссылки
 
             # Выводим поля товара, чтобы увидеть, какие данные мы можем использовать
             print(f"Товар: {market_name}, Цена: {price}, Ссылка: {item_url}")
@@ -84,4 +84,3 @@ def check_items():
 while True:
     check_items()
     time.sleep(120)  # Пауза 2 минуты
-
