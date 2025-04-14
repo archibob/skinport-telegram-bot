@@ -124,10 +124,16 @@ async def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    # Запуск бота с использованием нового синтаксиса
+    # Запуск бота с использованием текущего цикла событий
     await application.run_polling()
 
 # Запуск асинхронной функции
 if __name__ == "__main__":
     import asyncio
-    asyncio.run(main())
+
+    # Если цикл событий уже запущен, то используем его вместо asyncio.run()
+    try:
+        asyncio.get_event_loop().run_until_complete(main())
+    except RuntimeError:
+        asyncio.run(main())
+
