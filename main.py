@@ -12,9 +12,6 @@ TARGET_ITEMS = {
     "Sport Gloves Bronze Morph": 150
 }
 
-# Список уже отправленных товаров ( по их ID )
-sent_items = set()
-
 def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
@@ -55,7 +52,7 @@ def check_items():
                 item_id = offer.get("id")
                 price_eur = offer.get("price")
 
-                if item_id in sent_items or price_eur is None:
+                if price_eur is None:
                     continue
 
                 print(f"Название: {market_name}, Цена: {price_eur:.2f} EUR")
@@ -65,7 +62,6 @@ def check_items():
                         message = f"🔔 Найдено:\n{market_name}\n💶 Цена: {price_eur:.2f} EUR"
                         print(message)
                         send_telegram_message(message)
-                        sent_items.add(item_id)
                         found = True
                         break
 
