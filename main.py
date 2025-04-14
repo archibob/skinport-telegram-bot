@@ -38,16 +38,8 @@ def check_items():
             send_telegram_message(error_text)
             return
 
-        # Пробуем декодировать с использованием разных кодировок
-        try:
-            response_content = response.content.decode('utf-8')
-        except UnicodeDecodeError:
-            try:
-                response_content = response.content.decode('latin1')
-            except UnicodeDecodeError as e:
-                print(f"Ошибка при декодировании с latin1: {e}")
-                response_content = response.content.decode('ascii', errors='ignore')
-
+        # Проверка содержимого ответа
+        response_content = response.content.decode('utf-8', errors='ignore')
         print("Response content:", response_content)
 
         if not response_content.strip():  # Проверяем, что тело ответа не пустое
@@ -57,7 +49,7 @@ def check_items():
             return
 
         try:
-            items = response.json()
+            items = response.json()  # Пробуем распарсить как JSON
         except ValueError as e:
             print(f"Ошибка при парсинге JSON: {e}")
             send_telegram_message(f"❗ Ошибка при парсинге JSON: {e}")
