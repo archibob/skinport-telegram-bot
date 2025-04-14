@@ -8,8 +8,8 @@ API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
 # 🧲 Ключевые слова и максимальные цены (в евро)
 ITEMS_PRICE_LIMITS = {
-    "Sport Gloves | Bronze Morph": 150,  # Ищем все перчатки этого типа
-    "Talon Knife": 300  # Ищем все Talon Knife ниже 300 евро
+    "Sport Gloves | Bronze Morph": 150,  # Искать только Sport Gloves | Bronze Morph до 150 евро
+    "Talon Knife": 300  # Искать все Talon Knife до 300 евро
 }
 
 # Храним уникальные идентификаторы уже найденных товаров
@@ -59,8 +59,8 @@ def check_items():
             # Логируем все товары для отладки
             print(f"Проверка товара: {market_name}, Цена: {price}, Ссылка: {item_url}")
 
-            # Проверка для перчаток Sport Gloves | Bronze Morph
-            if price is not None and "Sport Gloves" in market_name and "Bronze Morph" in market_name and price <= ITEMS_PRICE_LIMITS["Sport Gloves | Bronze Morph"] and unique_id not in found_items:
+            # Логика для поиска только конкретных "Sport Gloves | Bronze Morph"
+            if price is not None and "Sport Gloves | Bronze Morph" in market_name and price <= ITEMS_PRICE_LIMITS["Sport Gloves | Bronze Morph"] and unique_id not in found_items:
                 message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
                 print(f"Найден товар: {message}")
                 send_telegram_message(message)
