@@ -8,7 +8,7 @@ API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
 # 🧲 Ключевые слова и максимальные цены (в евро)
 ITEMS_PRICE_LIMITS = {
-    "Sport Gloves | Bronze Morph": 150,  # Ищем только этот скин
+    "Sport Gloves | Bronze Morph": 150,  # Ищем все перчатки этого типа
     "Talon Knife": 300  # Ищем все Talon Knife ниже 300 евро
 }
 
