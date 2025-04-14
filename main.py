@@ -58,7 +58,7 @@ def check_items():
 
             # Если цена есть, выводим её в евро
             if price is not None:
-                print(f"Цена товара: {price} EUR")  # Отображаем цену без деления
+                print(f"Цена товара: {price} EUR")  # Теперь цена будет в евро как есть
 
                 # Ищем ключевое слово в названии товара и проверяем цену
                 for keyword, min_price in ITEMS_PRICE_LIMITS.items():
