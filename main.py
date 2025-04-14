@@ -6,9 +6,12 @@ TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
 TELEGRAM_CHAT_ID = "388895285"
 API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
-# 🧲 Ключевые слова, по которым фильтруем нужные предметы
-KEYWORDS = ["Коготь", "Спортивные перчатки | Окисление бронзы", "AK-47 | Redline"]
-MAX_PRICE = 15000  # 150 евро в центах
+# 🧲 Ключевые слова и минимальные цены для каждого типа предмета
+ITEMS_PRICE_LIMITS = {
+    "Коготь": 30000,  # 300 евро в центах
+    "Спортивные перчатки | Окисление бронзы": 15000,  # 150 евро в центах
+    "AK-47 | Redline": 25000  # Примерная цена для АК-47 | Redline, 250 евро в центах
+}
 
 def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
@@ -50,15 +53,14 @@ def check_items():
             if price is not None:
                 print(f"Проверяем товар: {market_name}, цена: {price / 100:.2f} EUR")
 
-                if any(keyword.lower() in market_name.lower() for keyword in KEYWORDS):
-                    print(f"Товар соответствует ключевым словам: {market_name}")
-
-                    # Проверяем, если цена товара меньше или равна максимальной цене
-                    if price <= MAX_PRICE and price > 0:  # Цена не должна быть равна 0
+                # Ищем ключевое слово в названии товара и проверяем цену
+                for keyword, min_price in ITEMS_PRICE_LIMITS.items():
+                    if keyword.lower() in market_name.lower() and price <= min_price:
                         message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price / 100:.2f} EUR"
                         print(message)
                         send_telegram_message(message)
                         found = True
+                        break
 
         if not found:
             print("Ничего не найдено.")
@@ -73,4 +75,3 @@ def check_items():
 while True:
     check_items()
     time.sleep(60)  # Пауза 60 секунд
-
