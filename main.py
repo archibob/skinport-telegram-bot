@@ -6,13 +6,13 @@ TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
 TELEGRAM_CHAT_ID = "388895285"
 API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
-# 🧲 Названия предметов и их лимиты по цене (в евро)
+# 🧲 Названия предметов и их лимиты по цене ( в евро )
 TARGET_ITEMS = {
     "Talon Knife": 300,
-    "Sport Gloves | Bronze Morph": 150
+    "Sport Gloves Bronze Morph": 150
 }
 
-# Список уже отправленных товаров (по их ID)
+# Список уже отправленных товаров ( по их ID )
 sent_items = set()
 
 def send_telegram_message(message):
