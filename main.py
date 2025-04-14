@@ -9,9 +9,9 @@ CHAT_ID = "388895285"
 # ===================
 
 # Настройки отслеживания
-SKIN_NAME = "Talon Knife"
-URL = "https://skinport.com/market?cat=Knife&T=Talon%20Knife"
-PRICE_LIMIT = 300  # Евро
+SKIN_NAME = "Talon Knife"  # Замени на название скина, за которым хочешь следить
+URL = "https://skinport.com/market?cat=Knife&T=Talon%20Knife"  # Ссылка на страницу с нужными скинами
+PRICE_LIMIT = 300  # Максимальная цена в евро
 
 bot = Bot(token=TOKEN)
 
@@ -22,8 +22,8 @@ def check_price():
         response.raise_for_status()  # Проверка на успешный ответ от сайта
         soup = BeautifulSoup(response.text, "html.parser")
 
-        # Попробуем использовать другой селектор или добавить больше логирования
-        items = soup.find_all("div", class_="item-outer")  # Попробуй сменить этот класс
+        # Поиск всех товаров
+        items = soup.find_all("div", class_="ItemPreview-itemInfo")
         print(f"Полученные товары: {len(items)}")  # Логируем количество товаров
 
         if not items:
@@ -31,10 +31,11 @@ def check_price():
             return
 
         for item in items:
-            price_tag = item.find("div", class_="item-price")
-            name_tag = item.find("div", class_="item-name")
+            price_tag = item.find("div", class_="ItemPreview-priceValue")
+            name_tag = item.find("div", class_="ItemPreview-itemTitle")
+            description_tag = item.find("div", class_="ItemPreview-itemText")
 
-            if not price_tag or not name_tag:
+            if not price_tag or not name_tag or not description_tag:
                 continue
 
             price_text = price_tag.get_text(strip=True).replace("€", "").replace(",", ".")
@@ -44,6 +45,7 @@ def check_price():
                 continue  # Если цена некорректная, пропускаем
 
             name = name_tag.get_text(strip=True)
+            description = description_tag.get_text(strip=True)
 
             print(f"Найден товар: {name} с ценой {price}")  # Логируем найденный товар
 
@@ -58,4 +60,5 @@ def check_price():
 while True:
     check_price()
     time.sleep(300)  # Проверка каждые 5 минут
+
 
