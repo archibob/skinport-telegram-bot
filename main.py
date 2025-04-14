@@ -5,7 +5,7 @@ import re
 # 🔧 Настройки
 TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
 TELEGRAM_CHAT_ID = "388895285"
-API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR&tradable=true"  # Проверяем, что запрос работает с корректными параметрами
+API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
 # 🧲 Ключевые слова и максимальные цены (в евро)
 ITEMS_PRICE_LIMITS = {
@@ -33,10 +33,8 @@ def check_items():
             "Accept-Encoding": "br",
             "User-Agent": "Mozilla/5.0"
         }
-
-        # Запрашиваем товары
         response = requests.get(API_URL, headers=headers)
-        print(f"Статус запроса: {response.status_code}")
+        print(f"Status Code: {response.status_code}")
 
         if response.status_code != 200:
             error_text = f"❌ Ошибка при запросе к Skinport: {response.status_code}\n{response.text}"
@@ -52,10 +50,10 @@ def check_items():
             return
 
         print(f"Получено {len(items)} товаров")
-        
-        if len(items) == 0:
-            send_telegram_message("⚠️ Получено 0 товаров. Проверьте параметры API.")
-            return
+
+        # Логируем все полученные товары для отладки
+        for item in items:
+            print(f"Товар из ответа: {item}")
 
         found = False
         for item in items:
