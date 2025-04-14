@@ -1,41 +1,48 @@
 import requests
 import time
-from telegram import Bot
 
-# Настройки
+# Telegram bot token и chat_id
 TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
 TELEGRAM_CHAT_ID = "388895285"
-MAX_PRICE = 300  # максимум в € для Talon
 
-bot = Bot(token=TELEGRAM_BOT_TOKEN)
+# Настройки отслеживаемого предмета
+TARGET_ITEMS = [
+    {
+        "name_contains": "Талон",
+        "price_limit": 300  # В евро
+    }
+]
+
+# URL API Skinport
+API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
+
+def send_message(text):
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": CHAT_ID,
+        "text": text,
+        "parse_mode": "HTML"
+    }
+    requests.post(url, data=payload)
 
 def check_items():
-    url = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
-    response = requests.get(url)
-    items = response.json()
+    response = requests.get(API_URL)
+    if response.status_code != 200:
+        print("Ошибка при запросе к API Skinport")
+        return
 
-    found = False
+    items = response.json()
+    print(f"Получено {len(items)} предметов")
 
     for item in items:
-        name = item.get("market_hash_name", "")
-        price = item.get("min_price", 0)
-
-        if "Talon Knife" in name and price and price < MAX_PRICE:
-            found = True
-            message = f"🔪 Найден {name} за {price}€ на Skinport!\nСсылка: https://skinport.com/item/{item.get('item_id')}"
-            bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
-
-    if not found:
-        print("❌ Подходящих предметов не найдено.")
-
-def run_monitor():
-    while True:
-        try:
-            print("🔍 Проверка предметов...")
-            check_items()
-        except Exception as e:
-            print(f"⚠️ Ошибка: {e}")
-        time.sleep(300)  # ждать 5 минут
+        for target in TARGET_ITEMS:
+            name = item.get("market_hash_name", "")
+            price = item.get("price", 0)
+            if target["name_contains"].lower() in name.lower() and price <= target["price_limit"]:
+                msg = f"🔔 Найден предмет: <b>{name}</b>\n💸 Цена: {price} €\n🔗 {item.get('url')}"
+                send_message(msg)
 
 if __name__ == "__main__":
-    run_monitor()
+    while True:
+        check_items()
+        time.sleep(60)  # Проверка каждую минуту
