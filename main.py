@@ -22,7 +22,8 @@ def check_price():
         response.raise_for_status()  # Проверка на успешный ответ от сайта
         soup = BeautifulSoup(response.text, "html.parser")
 
-        items = soup.find_all("div", class_="item-outer")
+        # Попробуем использовать другой селектор или добавить больше логирования
+        items = soup.find_all("div", class_="item-outer")  # Попробуй сменить этот класс
         print(f"Полученные товары: {len(items)}")  # Логируем количество товаров
 
         if not items:
