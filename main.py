@@ -12,6 +12,9 @@ ITEMS_PRICE_LIMITS = {
     "Sport Gloves": 150
 }
 
+# Храним уникальные идентификаторы уже найденных товаров
+found_items = set()
+
 def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
@@ -48,26 +51,19 @@ def check_items():
 
         found = False
         for item in items:
-            print(f"Полные данные товара: {item}")  # Выводим полную информацию для каждого товара
-
             market_name = item.get("market_hash_name", "")
             price = item.get("min_price", None)
-            item_url = item.get("item_page", "Ссылка не доступна")  # Используем item_page для ссылки
-
-            # Выводим поля товара, чтобы увидеть, какие данные мы можем использовать
-            print(f"Товар: {market_name}, Цена: {price}, Ссылка: {item_url}")
+            item_url = item.get("url", "")
+            unique_id = f"{market_name}:{price}"
 
             if price is not None:
                 for keyword, max_price in ITEMS_PRICE_LIMITS.items():
-                    if keyword.lower() in market_name.lower() and price <= max_price:
-                        message = (
-                            f"🔔 Найден предмет:\n"
-                            f"{market_name}\n"
-                            f"💶 Цена: {price} EUR\n"
-                            f"🔗 Ссылка: {item_url}"
-                        )
+                    # Проверяем, если ключевое слово встречается в названии товара и цена не превышает лимит
+                    if keyword.lower() in market_name.lower() and price <= max_price and unique_id not in found_items:
+                        message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
                         print(message)
                         send_telegram_message(message)
+                        found_items.add(unique_id)
                         found = True
                         break
 
