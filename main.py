@@ -6,10 +6,10 @@ TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
 TELEGRAM_CHAT_ID = "388895285"
 API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
-# 🧲 Названия предметов и их лимиты по цене ( в евро )
+# 🧲 Названия предметов и их лимиты по цене (в евро)
 TARGET_ITEMS = {
     "Talon Knife": 300,
-    "Sport Gloves Bronze Morph": 150
+    "Sport Gloves | Bronze Morph": 150
 }
 
 def send_telegram_message(message):
@@ -48,6 +48,9 @@ def check_items():
             market_name = item.get("market_hash_name", "")
             offers = item.get("items", [])
 
+            if not offers:  # Если у товара нет предложений, пропускаем
+                continue
+
             for offer in offers:
                 item_id = offer.get("id")
                 price_eur = offer.get("price")
@@ -55,11 +58,11 @@ def check_items():
                 if price_eur is None:
                     continue
 
-                print(f"Название: {market_name}, Цена: {price_eur:.2f} EUR")
+                print(f"Название: {market_name}, Цена: {price_eur} EUR")
 
                 for keyword, max_price in TARGET_ITEMS.items():
                     if keyword.lower() in market_name.lower() and price_eur <= max_price:
-                        message = f"🔔 Найдено:\n{market_name}\n💶 Цена: {price_eur:.2f} EUR"
+                        message = f"🔔 Найдено:\n{market_name}\n💶 Цена: {price_eur} EUR"
                         print(message)
                         send_telegram_message(message)
                         found = True
