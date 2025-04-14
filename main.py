@@ -51,10 +51,6 @@ def check_items():
 
         print(f"Получено {len(items)} товаров")
 
-        # Логируем все полученные товары для отладки
-        for item in items:
-            print(f"Товар из ответа: {item}")
-
         found = False
         for item in items:
             market_name = item.get("market_hash_name", "")
@@ -83,7 +79,8 @@ def check_items():
                     found = True
 
                 # Логика для поиска AWP Asiimov (Battle-Scarred)
-                if re.search(r"AWP\s*Asiimov", market_name, re.IGNORECASE) and "Battle-Scarred" in market_name:
+                # Теперь точнее проверяем на наличие "AWP Asiimov" и "Battle-Scarred"
+                if "AWP Asiimov" in market_name and "Battle-Scarred" in market_name:
                     print(f"Проверка AWP Asiimov: {market_name} с ценой {price} евро")
                     if price is not None and price <= ITEMS_PRICE_LIMITS["AWP Asiimov (Battle-Scarred)"] and unique_id not in found_items:
                         message = f"🔔 Найден AWP Asiimov (Battle-Scarred):\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
