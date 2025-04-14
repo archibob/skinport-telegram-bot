@@ -55,7 +55,7 @@ def check_items():
 
             # Выводим все данные о товаре для отладки
             print(f"Проверяем товар: {market_name}")
-            print(f"Цена сырой: {price}")
+            print(f"Цена сырой (в центрах): {price}")
 
             # Если цена есть, выводим её в евро
             if price is not None:
