@@ -1,17 +1,18 @@
 import requests
 import time
 
-# Настройки
+# 🔧 Настройки
 TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
 TELEGRAM_CHAT_ID = "388895285"
 API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
-# Условия фильтра: что искать и по какой цене максимум
-FILTERS = [
-    {"keywords": ["talon knife"], "max_price": 300},
-    {"keywords": ["sport gloves", "bronze morph"], "max_price": 150},
-]
+# 🧲 Ключевые слова и максимальные цены (в евро)
+ITEMS_PRICE_LIMITS = {
+    "Talon Knife": 300,
+    "Sport Gloves": 150
+}
 
+# Храним уникальные идентификаторы уже найденных товаров
 found_items = set()
 
 def send_telegram_message(message):
@@ -26,7 +27,10 @@ def send_telegram_message(message):
 
 def check_items():
     try:
-        headers = {"Accept-Encoding": "br"}
+        headers = {
+            "Accept-Encoding": "br",
+            "User-Agent": "Mozilla/5.0"
+        }
         response = requests.get(API_URL, headers=headers)
         print(f"Status Code: {response.status_code}")
 
@@ -36,34 +40,35 @@ def check_items():
             send_telegram_message(error_text)
             return
 
-        items = response.json()
+        try:
+            items = response.json()
+        except Exception as e:
+            print("Ошибка при парсинге JSON:", e)
+            send_telegram_message(f"❗️ Ошибка при парсинге JSON: {e}")
+            return
+
         print(f"Получено {len(items)} товаров")
 
         found = False
         for item in items:
-            market_name = item.get("market_hash_name", "").lower()
+            market_name = item.get("market_hash_name", "")
             price = item.get("min_price", None)
-            item_id = item.get("id", None)
+            item_url = item.get("url", "")
+            unique_id = f"{market_name}:{price}"
 
-            if price is None or item_id is None:
-                continue
-
-            for f in FILTERS:
-                if all(keyword in market_name for keyword in f["keywords"]) and price <= f["max_price"]:
-                    if item_id not in found_items:
-                        message = (
-                            f"🔔 Найден предмет:\n"
-                            f"{item['market_hash_name']}\n"
-                            f"💶 Цена: {price} EUR"
-                        )
+            if price is not None:
+                for keyword, max_price in ITEMS_PRICE_LIMITS.items():
+                    if keyword.lower() in market_name.lower() and price <= max_price and unique_id not in found_items:
+                        message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
                         print(message)
                         send_telegram_message(message)
-                        found_items.add(item_id)
+                        found_items.add(unique_id)
                         found = True
-                    break
+                        break
 
         if not found:
             print("Ничего не найдено.")
+            send_telegram_message("⚠️ Ничего не найдено из интересующих предметов.")
 
     except Exception as e:
         error_msg = f"❗ Ошибка при выполнении скрипта: {e}"
@@ -73,4 +78,4 @@ def check_items():
 # 🔁 Запуск в цикле
 while True:
     check_items()
-    time.sleep(60)
+    time.sleep(120)  # Пауза 2 минуты
