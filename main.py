@@ -28,6 +28,14 @@ def check_items():
         response = requests.get(API_URL, headers=headers)
         print(f"Status Code: {response.status_code}")
 
+        # Обработка ошибки 429 (rate limiting)
+        if response.status_code == 429:
+            error_text = f"❌ Ошибка 429: Превышен лимит запросов. Сделаем паузу на 10 минут."
+            print(error_text)
+            send_telegram_message(error_text)
+            time.sleep(600)  # Пауза 10 минут
+            return
+
         if response.status_code != 200:
             error_text = f"❌ Ошибка при запросе к Skinport: {response.status_code}\n{response.text}"
             print(error_text)
@@ -83,4 +91,4 @@ def check_items():
 # 🔁 Запуск в цикле
 while True:
     check_items()
-    time.sleep(60)  # Пауза 60 секунд
+    time.sleep(300)  # Пауза 5 минут (изменена с 60 секунд)
