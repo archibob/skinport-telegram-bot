@@ -1,15 +1,16 @@
 import requests
 import time
+import re
 
 # 🔧 Настройки
 TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
 TELEGRAM_CHAT_ID = "388895285"
 API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
-# 🧲 Ключевые слова и минимальные цены для каждого типа предмета
+# 🧲 Шаблоны поиска и максимальные цены
 ITEMS_PRICE_LIMITS = {
-    "Talon Knife": 30000,  # 300 евро в центах
-    "Sport Gloves | Bronze Morph": 15000  # 150 евро в центах
+    r"Talon Knife\b": 30000,  # Любой Talon Knife до 300 евро
+    r"Sport Gloves\s*\|\s*Bronze Morph": 15000  # Конкретные перчатки
 }
 
 # Храним ID уже найденных товаров
@@ -52,21 +53,18 @@ def check_items():
             price = item.get("min_price", None)
             item_id = item.get("id", None)
 
-            # Выводим все данные о товаре для отладки
+            clean_name = market_name.replace("★", "").strip()
+
             print(f"Проверяем товар: {market_name}")
-            print(f"Цена сырой: {price}")
+            print(f"Цена: {price} EUR")
 
-            # Если цена есть, выводим её в евро
             if price is not None:
-                print(f"Цена товара: {price} EUR")  # Теперь цена будет в евро как есть
-
-                # Ищем ключевое слово в названии товара и проверяем цену
-                for keyword, min_price in ITEMS_PRICE_LIMITS.items():
-                    if keyword.lower() in market_name.lower() and price <= min_price and item_id not in found_items:
+                for pattern, max_price in ITEMS_PRICE_LIMITS.items():
+                    if re.search(pattern, clean_name, re.IGNORECASE) and price <= max_price and item_id not in found_items:
                         message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price} EUR"
                         print(message)
                         send_telegram_message(message)
-                        found_items.add(item_id)  # Добавляем ID в список найденных товаров
+                        found_items.add(item_id)
                         found = True
                         break
 
@@ -83,3 +81,4 @@ def check_items():
 while True:
     check_items()
     time.sleep(60)  # Пауза 60 секунд
+
