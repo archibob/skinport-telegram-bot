@@ -50,7 +50,8 @@ def check_items():
         for item in items:
             market_name = item.get("market_hash_name", "")
             price = item.get("min_price", None)
-            item_url = f"https://skinport.com/item/{item.get('id', '')}"  # Формируем ссылку на товар через ID
+            item_id = item.get("id", "")  # Получаем ID товара
+            item_url = f"https://skinport.com/item/{item_id}"  # Формируем ссылку на товар
 
             if price is not None:
                 for keyword, max_price in ITEMS_PRICE_LIMITS.items():
