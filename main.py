@@ -38,6 +38,12 @@ def check_items():
             send_telegram_message(error_text)
             return
 
+        if not response.text.strip():  # Проверяем, что тело ответа не пустое
+            error_msg = "❗ Ответ от API Skinport пустой!"
+            print(error_msg)
+            send_telegram_message(error_msg)
+            return
+
         try:
             items = response.json()
         except ValueError as e:
@@ -68,4 +74,5 @@ def check_items():
 while True:
     check_items()
     time.sleep(60)  # Пауза 60 секунд
+
 
