@@ -5,7 +5,7 @@ import re
 # 🔧 Настройки
 TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
 TELEGRAM_CHAT_ID = "388895285"
-API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
+API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR&tradable=true"
 
 # 🧲 Ключевые слова и максимальные цены (в евро)
 ITEMS_PRICE_LIMITS = {
@@ -27,16 +27,16 @@ def send_telegram_message(message):
     except Exception as e:
         print("Ошибка Telegram:", e)
 
-def check_items(page=1):
+def check_items():
     try:
         headers = {
             "Accept-Encoding": "br",
             "User-Agent": "Mozilla/5.0"
         }
 
-        # Добавим пагинацию
-        response = requests.get(f"{API_URL}&page={page}", headers=headers)
-        print(f"Страница {page}: Статус запроса {response.status_code}")
+        # Запрашиваем товары
+        response = requests.get(API_URL, headers=headers)
+        print(f"Статус запроса: {response.status_code}")
 
         if response.status_code != 200:
             error_text = f"❌ Ошибка при запросе к Skinport: {response.status_code}\n{response.text}"
@@ -51,11 +51,7 @@ def check_items(page=1):
             send_telegram_message(f"❗️ Ошибка при парсинге JSON: {e}")
             return
 
-        print(f"Страница {page}: Получено {len(items)} товаров")
-
-        # Логируем все полученные товары для отладки
-        for item in items:
-            print(f"Товар из ответа: {item}")
+        print(f"Получено {len(items)} товаров")
 
         found = False
         for item in items:
@@ -99,10 +95,6 @@ def check_items(page=1):
         if not found:
             print("Ничего не найдено.")
             send_telegram_message("⚠️ Ничего не найдено из интересующих предметов.")
-
-        # Если на текущей странице есть еще товары, делаем запрос к следующей странице
-        if len(items) > 0:
-            check_items(page + 1)
 
     except Exception as e:
         error_msg = f"❗ Ошибка при выполнении скрипта: {e}"
