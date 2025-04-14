@@ -55,30 +55,35 @@ def check_items():
             price = item.get("min_price", None)
             item_url = item.get("item_page", "")
 
-            print(f"Товар: {market_name}, Цена: {price}, Ссылка: {item_url}")
+            # Дополнительные отладочные сообщения
+            print(f"Проверка товара: {market_name}, Цена: {price}, Ссылка: {item_url}")
 
-            if price is not None:
-                # Sport Gloves | Bronze Morph
-                if re.search(r"Sport Gloves\s*\|\s*Bronze Morph", market_name) and price <= ITEMS_PRICE_LIMITS["Sport Gloves | Bronze Morph"]:
+            # Проверка на Sport Gloves | Bronze Morph
+            if re.search(r"Sport Gloves\s*\|\s*Bronze Morph", market_name, re.IGNORECASE):
+                print(f"Проверка на Sport Gloves | Bronze Morph: {market_name}")
+                if price is not None and price <= ITEMS_PRICE_LIMITS["Sport Gloves | Bronze Morph"]:
                     message = f"🔔 Найдены перчатки:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
                     print(message)
                     send_telegram_message(message)
                     matches_found += 1
 
-                # Talon Knife
-                if "talon knife" in market_name.lower() and price <= ITEMS_PRICE_LIMITS["Talon Knife"]:
+            # Проверка на Talon Knife
+            if "talon knife" in market_name.lower():
+                print(f"Проверка на Talon Knife: {market_name}")
+                if price is not None and price <= ITEMS_PRICE_LIMITS["Talon Knife"]:
                     message = f"🔔 Найден нож:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
                     print(message)
                     send_telegram_message(message)
                     matches_found += 1
 
-                # AWP | Asiimov (Battle-Scarred)
-                if re.search(r"AWP\s*\|\s*Asiimov", market_name, re.IGNORECASE) and "Battle-Scarred" in market_name:
-                    if price <= ITEMS_PRICE_LIMITS["AWP | Asiimov (Battle-Scarred)"]:
-                        message = f"🔔 Найдена AWP Asiimov (Battle-Scarred):\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
-                        print(message)
-                        send_telegram_message(message)
-                        matches_found += 1
+            # Проверка на AWP | Asiimov (Battle-Scarred)
+            if re.search(r"AWP\s*\|\s*Asiimov", market_name, re.IGNORECASE):
+                print(f"Проверка на AWP Asiimov (Battle-Scarred): {market_name}")
+                if "Battle-Scarred" in market_name and price is not None and price <= ITEMS_PRICE_LIMITS["AWP | Asiimov (Battle-Scarred)"]:
+                    message = f"🔔 Найдена AWP Asiimov (Battle-Scarred):\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
+                    print(message)
+                    send_telegram_message(message)
+                    matches_found += 1
 
         if matches_found == 0:
             print("Ничего не найдено.")
