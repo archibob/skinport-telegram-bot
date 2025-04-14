@@ -2,8 +2,8 @@ import requests
 import time
 
 # 🔧 Настройки
-TELEGRAM_BOT_TOKEN = "твой_токен"
-TELEGRAM_CHAT_ID = "твой_чат_айди"
+TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
+TELEGRAM_CHAT_ID = "388895285"
 API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
 # 🧲 Ключевые слова и максимальные цены (в евро)
