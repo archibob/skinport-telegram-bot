@@ -49,9 +49,14 @@ def check_items():
             market_name = item.get("market_hash_name", "")
             price = item.get("min_price", None)
 
+            # Выводим все данные о товаре для отладки
+            print(f"Проверяем товар: {market_name}")
+            print(f"Цена сырой: {price}")
+
             # Проверяем, если цена не равна None
             if price is not None:
-                print(f"Проверяем товар: {market_name}, цена: {price / 100:.2f} EUR")
+                # Выводим цену в евро
+                print(f"Цена товара: {price / 100:.2f} EUR")
 
                 # Ищем ключевое слово в названии товара и проверяем цену
                 for keyword, min_price in ITEMS_PRICE_LIMITS.items():
