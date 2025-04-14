@@ -53,19 +53,16 @@ def check_items():
 
             for offer in offers:
                 item_id = offer.get("id")
-                price_cents = offer.get("price")
+                price_eur = offer.get("price")
 
-                if item_id in sent_items or price_cents is None:
+                if item_id in sent_items or price_eur is None:
                     continue
 
-                price_in_euro = price_cents / 100.0
-
-                print(f"Название: {market_name}, Цена: {price_cents}")
-                print(f"Цена в евро: {price_in_euro:.2f} EUR")
+                print(f"Название: {market_name}, Цена: {price_eur:.2f} EUR")
 
                 for keyword, max_price in TARGET_ITEMS.items():
-                    if keyword.lower() in market_name.lower() and price_in_euro <= max_price:
-                        message = f"🔔 Найдено:\n{market_name}\n💶 Цена: {price_in_euro:.2f} EUR"
+                    if keyword.lower() in market_name.lower() and price_eur <= max_price:
+                        message = f"🔔 Найдено:\n{market_name}\n💶 Цена: {price_eur:.2f} EUR"
                         print(message)
                         send_telegram_message(message)
                         sent_items.add(item_id)
