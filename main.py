@@ -50,14 +50,12 @@ def check_items():
         for item in items:
             market_name = item.get("market_hash_name", "")
             price = item.get("min_price", None)
-            item_url = item.get("url", "")  # Проверяем, есть ли URL товара в ответе API
+            item_id = item.get("id", None)
+            item_url = f"https://skinport.com/item/{item_id}" if item_id else ""
 
             if price is not None:
                 for keyword, max_price in ITEMS_PRICE_LIMITS.items():
                     if keyword.lower() in market_name.lower() and price <= max_price:
-                        if not item_url:  # Если URL не был найден
-                            item_url = f"https://skinport.com/item/{item.get('id', '')}"  # Формируем ссылку с ID товара
-
                         message = (
                             f"🔔 Найден предмет:\n"
                             f"{market_name}\n"
