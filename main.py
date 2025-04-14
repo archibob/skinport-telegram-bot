@@ -51,6 +51,10 @@ def check_items():
 
         print(f"Получено {len(items)} товаров")
 
+        # Логируем все полученные товары для отладки
+        for item in items:
+            print(f"Товар из ответа: {item}")
+
         found = False
         for item in items:
             market_name = item.get("market_hash_name", "")
