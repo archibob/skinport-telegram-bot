@@ -9,8 +9,15 @@ API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 # 🧲 Ключевые слова, по которым фильтруем нужные предметы
 KEYWORDS = ["Коготь", "Сажа"]  # Добавь свои ключи
 
+# Заголовки для запроса с добавленной поддержкой Brotli
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
+    "Accept": "application/json",
+    "Accept-Encoding": "br",  # Поддержка Brotli
+}
+
 def send_telegram_message(message):
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"  # Здесь исправлено
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
     try:
         response = requests.post(url, data=payload)
@@ -19,10 +26,9 @@ def send_telegram_message(message):
     except Exception as e:
         print("Ошибка Telegram:", e)
 
-
 def check_items():
     try:
-        response = requests.get(API_URL)
+        response = requests.get(API_URL, headers=HEADERS)  # Добавлены заголовки
         print(f"Status Code: {response.status_code}")
 
         if response.status_code != 200:
@@ -55,3 +61,4 @@ def check_items():
 while True:
     check_items()
     time.sleep(60)  # Пауза 60 секунд
+
