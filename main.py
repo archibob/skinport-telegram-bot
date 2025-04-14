@@ -45,9 +45,13 @@ def check_items():
         for item in items:
             market_name = item.get("market_hash_name", "")
             price = item.get("min_price", 0)
+            print(f"Проверяем товар: {market_name}, цена: {price / 100:.2f} EUR")
+
             if any(keyword.lower() in market_name.lower() for keyword in KEYWORDS):
-                # Отправляем информацию, если цена меньше или равна максимальной
-                if price <= MAX_PRICE or price > 0:  # Проверяем, что цена существует и меньше или равна указанной
+                print(f"Товар соответствует ключевым словам: {market_name}")
+
+                # Проверяем, если цена товара меньше или равна максимальной цене
+                if price <= MAX_PRICE and price > 0:  # Цена не должна быть равна 0
                     message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price / 100:.2f} EUR"
                     print(message)
                     send_telegram_message(message)
