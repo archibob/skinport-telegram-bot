@@ -48,6 +48,7 @@ def check_items():
 
         print(f"Получено {len(items)} товаров")
 
+        # Счетчик найденных совпадений
         matches_found = 0
 
         for item in items:
@@ -90,6 +91,7 @@ def check_items():
                     send_telegram_message(message)
                     matches_found += 1
 
+        # Если ничего не найдено
         if matches_found == 0:
             print("Ничего не найдено.")
             send_telegram_message("⚠️ Ничего не найдено из интересующих предметов.")
