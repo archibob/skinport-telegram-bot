@@ -60,7 +60,7 @@ def check_items():
             print(f"Товар: {market_name}, Цена: {price}, Ссылка: {item_url}")
 
             # Проверка для Sport Gloves | Bronze Morph
-            if price is not None and "sport gloves" in market_name.lower() and "bronze morph" in market_name.lower() and price <= ITEMS_PRICE_LIMITS["Sport Gloves | Bronze Morph"] and unique_id not in found_items:
+            if price is not None and "Sport Gloves | Bronze Morph" in market_name and price <= ITEMS_PRICE_LIMITS["Sport Gloves | Bronze Morph"] and unique_id not in found_items:
                 message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
                 print(message)
                 send_telegram_message(message)
