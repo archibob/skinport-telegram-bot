@@ -2,8 +2,8 @@ import requests
 import time
 
 # 🔧 Настройки
-TELEGRAM_BOT_TOKEN = "вставь_свой_токен"
-TELEGRAM_CHAT_ID = "вставь_свой_chat_id"
+TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
+TELEGRAM_CHAT_ID = "388895285"
 API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
 KEYWORDS = ["Коготь", "Сажа"]
