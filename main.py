@@ -1,6 +1,7 @@
 import requests
 import time
 import re
+import random
 
 # 🔧 Настройки
 TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
@@ -14,6 +15,7 @@ ITEMS_PRICE_LIMITS = {
     "AWP | Asiimov (Battle-Scarred)": 75
 }
 
+# Функция отправки сообщений в Telegram
 def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
@@ -24,19 +26,25 @@ def send_telegram_message(message):
     except Exception as e:
         print("Ошибка Telegram:", e)
 
+# Функция проверки наличия товаров
 def check_items():
     try:
         headers = {
             "Accept-Encoding": "br",
             "User-Agent": "Mozilla/5.0"
         }
-        response = requests.get(API_URL, headers=headers)
-        print(f"Status Code: {response.status_code}")
-
-        if response.status_code != 200:
-            error_text = f"❌ Ошибка при запросе к Skinport: {response.status_code}\n{response.text}"
-            print(error_text)
-            send_telegram_message(error_text)
+        
+        # Попытки запроса с задержками для избежания блокировки
+        retries = 3
+        for _ in range(retries):
+            response = requests.get(API_URL, headers=headers)
+            if response.status_code == 200:
+                break
+            print(f"Ошибка запроса, повторная попытка... Статус: {response.status_code}")
+            time.sleep(random.randint(5, 15))  # Задержка перед повтором
+        else:
+            print("Не удалось получить данные после нескольких попыток.")
+            send_telegram_message("❗️ Не удалось получить данные с Skinport.")
             return
 
         try:
@@ -55,10 +63,9 @@ def check_items():
             price = item.get("min_price", None)
             item_url = item.get("item_page", "")
 
-            # Логирование для отладки
             print(f"Проверка товара: {market_name}, Цена: {price}, Ссылка: {item_url}")
 
-            # Проверка на Sport Gloves | Bronze Morph
+            # Логика для поиска нужных товаров
             if re.search(r"Sport\s*Gloves\s*\|\s*Bronze\s*Morph", market_name, re.IGNORECASE):
                 print(f"Найдено соответствие для перчаток: {market_name}")
                 if price is not None and price <= ITEMS_PRICE_LIMITS["Sport Gloves | Bronze Morph"]:
@@ -67,7 +74,6 @@ def check_items():
                     send_telegram_message(message)
                     matches_found += 1
 
-            # Проверка на Talon Knife
             if "talon knife" in market_name.lower():
                 print(f"Найдено соответствие для ножа: {market_name}")
                 if price is not None and price <= ITEMS_PRICE_LIMITS["Talon Knife"]:
@@ -76,7 +82,6 @@ def check_items():
                     send_telegram_message(message)
                     matches_found += 1
 
-            # Проверка на AWP | Asiimov (Battle-Scarred)
             if re.search(r"AWP\s*\|\s*Asiimov", market_name, re.IGNORECASE):
                 print(f"Найдено соответствие для AWP Asiimov: {market_name}")
                 if "Battle-Scarred" in market_name and price is not None and price <= ITEMS_PRICE_LIMITS["AWP | Asiimov (Battle-Scarred)"]:
