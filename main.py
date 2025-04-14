@@ -30,6 +30,7 @@ def check_items():
     try:
         response = requests.get(API_URL, headers=HEADERS)  # Добавлены заголовки
         print(f"Status Code: {response.status_code}")
+        print("Response text:", response.text)  # Выводим текст ответа
 
         if response.status_code != 200:
             error_text = f"❌ Ошибка при запросе к Skinport: {response.status_code}\n{response.text}"
@@ -37,7 +38,13 @@ def check_items():
             send_telegram_message(error_text)
             return
 
-        items = response.json()
+        try:
+            items = response.json()
+        except ValueError as e:
+            print(f"Ошибка при парсинге JSON: {e}")
+            send_telegram_message(f"❗ Ошибка при парсинге JSON: {e}")
+            return
+
         print(f"Получено {len(items)} товаров")
 
         found = False
