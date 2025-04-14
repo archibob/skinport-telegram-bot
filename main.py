@@ -74,5 +74,3 @@ def check_items():
 while True:
     check_items()
     time.sleep(60)  # Пауза 60 секунд
-
-
