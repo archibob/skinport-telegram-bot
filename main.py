@@ -1,5 +1,6 @@
 import requests
 import time
+import re
 
 # 🔧 Настройки
 TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
@@ -59,21 +60,22 @@ def check_items():
             # Логируем все товары для отладки
             print(f"Проверка товара: {market_name}, Цена: {price}, Ссылка: {item_url}")
 
-            # Логика для поиска только конкретных "Sport Gloves | Bronze Morph"
-            if price is not None and "Sport Gloves | Bronze Morph" in market_name and price <= ITEMS_PRICE_LIMITS["Sport Gloves | Bronze Morph"] and unique_id not in found_items:
-                message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
-                print(f"Найден товар: {message}")
-                send_telegram_message(message)
-                found_items.add(unique_id)
-                found = True
+            # Регулярное выражение для поиска "Sport Gloves | Bronze Morph"
+            if price is not None:
+                if re.search(r"Sport Gloves\s*\|\s*Bronze Morph", market_name) and price <= ITEMS_PRICE_LIMITS["Sport Gloves | Bronze Morph"] and unique_id not in found_items:
+                    message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
+                    print(f"Найден товар: {message}")
+                    send_telegram_message(message)
+                    found_items.add(unique_id)
+                    found = True
 
-            # Логика для поиска ножей Talon Knife
-            elif price is not None and "talon knife" in market_name.lower() and price <= ITEMS_PRICE_LIMITS["Talon Knife"] and unique_id not in found_items:
-                message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
-                print(f"Найден нож: {message}")
-                send_telegram_message(message)
-                found_items.add(unique_id)
-                found = True
+                # Логика для поиска ножей Talon Knife
+                elif "talon knife" in market_name.lower() and price <= ITEMS_PRICE_LIMITS["Talon Knife"] and unique_id not in found_items:
+                    message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
+                    print(f"Найден нож: {message}")
+                    send_telegram_message(message)
+                    found_items.add(unique_id)
+                    found = True
 
         if not found:
             print("Ничего не найдено.")
