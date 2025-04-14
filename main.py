@@ -1,17 +1,10 @@
 import requests
 import time
-import re
 
 # 🔧 Настройки
 TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
 TELEGRAM_CHAT_ID = "388895285"
 API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
-
-# 🧲 Шаблоны поиска и максимальные цены
-ITEMS_PRICE_LIMITS = {
-    r"Talon Knife\b": 30000,  # Любой Talon Knife до 300 евро
-    r"Sport Gloves\s*\|\s*Bronze Morph": 15000  # Конкретные перчатки
-}
 
 # Храним ID уже найденных товаров
 found_items = set()
@@ -53,20 +46,33 @@ def check_items():
             price = item.get("min_price", None)
             item_id = item.get("id", None)
 
+            # Удаляем символ "★", если есть
             clean_name = market_name.replace("★", "").strip()
 
-            print(f"Проверяем товар: {market_name}")
+            # 🔎 Отладка — логируем всё, что связано с Talon Knife
+            if "Talon Knife" in clean_name:
+                print(f"🔎 Обнаружен Talon Knife: {clean_name} — {price} EUR")
+
+            print(f"Проверяем товар: {clean_name}")
             print(f"Цена: {price} EUR")
 
             if price is not None:
-                for pattern, max_price in ITEMS_PRICE_LIMITS.items():
-                    if re.search(pattern, clean_name, re.IGNORECASE) and price <= max_price and item_id not in found_items:
-                        message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price} EUR"
-                        print(message)
-                        send_telegram_message(message)
-                        found_items.add(item_id)
-                        found = True
-                        break
+                # Проверка Talon Knife < 300 EUR
+                if "Talon Knife" in clean_name and price <= 30000 and item_id not in found_items:
+                    message = f"🔔 Найден Talon Knife:\n{market_name}\n💶 Цена: {price} EUR"
+                    print(message)
+                    send_telegram_message(message)
+                    found_items.add(item_id)
+                    found = True
+                    continue
+
+                # Проверка Sport Gloves | Bronze Morph < 150 EUR
+                if "Sport Gloves | Bronze Morph" in clean_name and price <= 15000 and item_id not in found_items:
+                    message = f"🔔 Найдены перчатки:\n{market_name}\n💶 Цена: {price} EUR"
+                    print(message)
+                    send_telegram_message(message)
+                    found_items.add(item_id)
+                    found = True
 
         if not found:
             print("Ничего не найдено.")
@@ -80,5 +86,4 @@ def check_items():
 # 🔁 Запуск в цикле
 while True:
     check_items()
-    time.sleep(60)  # Пауза 60 секунд
-
+    time.sleep(60)
