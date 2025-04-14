@@ -1,5 +1,7 @@
 import requests
 import time
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler
 
 # 🔧 Настройки
 TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
@@ -12,6 +14,9 @@ TARGET_ITEMS = {
     "Sport Gloves | Bronze Morph": 150
 }
 
+# Список уже отправленных товаров (по их ID)
+sent_items = set()
+
 def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
@@ -22,19 +27,30 @@ def send_telegram_message(message):
     except Exception as e:
         print("Ошибка Telegram:", e)
 
+def start(update, context):
+    """Начальный обработчик команды /start. Отправляет кнопку для поиска."""
+    keyboard = [
+        [InlineKeyboardButton("Поиск", callback_data='search')],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    update.message.reply_text("Нажмите кнопку, чтобы начать поиск товаров.", reply_markup=reply_markup)
+
+def button(update, context):
+    """Обрабатываем нажатие на кнопку 'Поиск'."""
+    query = update.callback_query
+    query.answer()
+
+    # Выполняем поиск товаров
+    check_items()
+
+    query.edit_message_text(text="Поиск завершен. Результаты отправлены в чат.")
+
 def check_items():
+    """Функция поиска товаров по фильтрам и отправки результата в Telegram."""
     try:
         headers = {"Accept-Encoding": "br"}
         response = requests.get(API_URL, headers=headers)
         print(f"Status Code: {response.status_code}")
-
-        # Обработка ошибки 429 (rate limiting)
-        if response.status_code == 429:
-            error_text = f"❌ Ошибка 429: Превышен лимит запросов. Сделаем паузу на 10 минут."
-            print(error_text)
-            send_telegram_message(error_text)
-            time.sleep(600)  # Пауза 10 минут
-            return
 
         if response.status_code != 200:
             error_text = f"❌ Ошибка при запросе к Skinport: {response.status_code}\n{response.text}"
@@ -88,7 +104,18 @@ def check_items():
         print(error_msg)
         send_telegram_message(error_msg)
 
-# 🔁 Запуск в цикле
-while True:
-    check_items()
-    time.sleep(300)  # Пауза 5 минут (изменена с 60 секунд)
+def main():
+    """Запускаем бота."""
+    updater = Updater(TELEGRAM_BOT_TOKEN, use_context=True)
+    dp = updater.dispatcher
+
+    # Обработчики команд
+    dp.add_handler(CommandHandler("start", start))
+    dp.add_handler(CallbackQueryHandler(button))
+
+    # Запуск бота
+    updater.start_polling()
+    updater.idle()
+
+if __name__ == '__main__':
+    main()
