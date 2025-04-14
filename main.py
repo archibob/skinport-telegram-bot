@@ -48,14 +48,15 @@ def check_items():
             send_telegram_message(error_msg)
             return
 
+        # Проверим, если ответ действительно в формате JSON
         try:
             items = response.json()  # Пробуем распарсить как JSON
-        except ValueError as e:
-            print(f"Ошибка при парсинге JSON: {e}")
-            send_telegram_message(f"❗ Ошибка при парсинге JSON: {e}")
+            print(f"Получено {len(items)} товаров")
+        except ValueError:
+            error_msg = f"❗ Ошибка при парсинге JSON, возможно неверный формат: {response_content}"
+            print(error_msg)
+            send_telegram_message(error_msg)
             return
-
-        print(f"Получено {len(items)} товаров")
 
         found = False
         for item in items:
