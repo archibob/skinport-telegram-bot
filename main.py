@@ -9,6 +9,9 @@ API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 # 🧲 Ключевые слова, по которым фильтруем нужные предметы
 KEYWORDS = ["Talon Knife", "Sport Gloves | Bronze Morph"]  # Ищем ножи "Talon Knife" и перчатки "Sport Gloves | Bronze Morph"
 
+# Список уже отправленных товаров (по их ID)
+sent_items = []
+
 def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
@@ -55,10 +58,13 @@ def check_items():
 
             # Проверка на наличие ключевых слов в названии предмета
             if any(keyword.lower() in market_name.lower() for keyword in KEYWORDS):
-                message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price_in_euro:.2f} EUR"
-                print(message)
-                send_telegram_message(message)
-                found = True
+                # Проверяем, был ли уже отправлен этот товар
+                if item["id"] not in sent_items:
+                    message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price_in_euro:.2f} EUR"
+                    print(message)
+                    send_telegram_message(message)
+                    sent_items.append(item["id"])  # Добавляем ID товара в список отправленных
+                    found = True
 
         if not found:
             print("Ничего не найдено.")
