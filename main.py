@@ -1,16 +1,19 @@
 import requests
 from bs4 import BeautifulSoup
 import time
+import re
 
-# Настройки
+# 🔧 Настройки
 TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
 TELEGRAM_CHAT_ID = "388895285"
+API_URL = "https://skinport.com/ru/market?cat=Rifle&item=Asiimov&type=AWP&exterior=1&sort=price&order=asc"  # Прямая ссылка на страницу с AWP
 
-# Ссылка на AWP Asiimov Battle-Scarred
-SKINPORT_URL = "https://skinport.com/ru/market?cat=Rifle&item=Asiimov&type=AWP&exterior=1&sort=price&order=asc"
-
-# Максимально допустимая цена
-PRICE_LIMIT = 75
+# 🧲 Ключевые слова и максимальные цены (в евро)
+ITEMS_PRICE_LIMITS = {
+    "Sport Gloves | Bronze Morph": 150,  # Максимальная цена для этих перчаток
+    "Talon Knife": 300,  # Максимальная цена для ножей
+    "AWP | Asiimov (Battle-Scarred)": 75  # Максимальная цена для AWP Asiimov (Battle-Scarred)
+}
 
 def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
@@ -22,51 +25,71 @@ def send_telegram_message(message):
     except Exception as e:
         print("Ошибка Telegram:", e)
 
-def check_asiimovs():
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
+def check_items():
     try:
-        response = requests.get(SKINPORT_URL, headers=headers)
+        headers = {
+            "Accept-Encoding": "br",
+            "User-Agent": "Mozilla/5.0"
+        }
+        response = requests.get(API_URL, headers=headers)
+        print(f"Status Code: {response.status_code}")
+
         if response.status_code != 200:
-            print(f"Ошибка запроса: {response.status_code}")
-            send_telegram_message(f"❌ Ошибка загрузки страницы Skinport: {response.status_code}")
+            error_text = f"❌ Ошибка при запросе к Skinport: {response.status_code}\n{response.text}"
+            print(error_text)
+            send_telegram_message(error_text)
             return
 
-        soup = BeautifulSoup(response.text, "html.parser")
-        items = soup.select("a[href^='/item/awp-asiimov-battle-scarred']")
+        # Парсим HTML страницу
+        soup = BeautifulSoup(response.text, 'html.parser')
+        items = soup.find_all("div", class_="item-card")
 
-        if not items:
-            print("❗️Не найдено ни одного элемента на странице.")
-            send_telegram_message("❗️ AWP Asiimov (BS) не найден на странице.")
-            return
+        print(f"Найдено товаров: {len(items)}")
 
         found = False
         for item in items:
-            price_tag = item.select_one(".item__price span")
-            if price_tag:
-                price_text = price_tag.text.replace("€", "").replace(",", ".").strip()
-                try:
-                    price = float(price_text)
-                    if price <= PRICE_LIMIT:
-                        item_url = "https://skinport.com" + item["href"]
-                        message = f"🔔 AWP | Asiimov (Battle-Scarred)\n💶 Цена: {price} EUR\n🔗 {item_url}"
-                        print(message)
+            market_name = item.find("span", class_="item-title").text.strip()  # Название предмета
+            price = item.find("span", class_="item-price").text.strip().replace("€", "").strip()  # Цена товара
+            price = float(price) if price else 0
+            item_url = "https://skinport.com" + item.find("a", class_="item-card-link")["href"]  # Ссылка на товар
+
+            # Логируем товар для отладки
+            print(f"Товар: {market_name}, Цена: {price}, Ссылка: {item_url}")
+
+            # Проверка для "Sport Gloves | Bronze Morph"
+            if price is not None:
+                if re.search(r"Sport Gloves\s*\|\s*Bronze Morph", market_name) and price <= ITEMS_PRICE_LIMITS["Sport Gloves | Bronze Morph"]:
+                    message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
+                    print(f"Найден товар: {message}")
+                    send_telegram_message(message)
+                    found = True
+
+                # Логика для поиска ножей Talon Knife
+                elif "talon knife" in market_name.lower() and price <= ITEMS_PRICE_LIMITS["Talon Knife"]:
+                    message = f"🔔 Найден нож:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
+                    print(f"Найден нож: {message}")
+                    send_telegram_message(message)
+                    found = True
+
+                # Логика для поиска AWP Asiimov (Battle-Scarred)
+                if re.search(r"AWP\s*\|\s*Asiimov", market_name, re.IGNORECASE) and "Battle-Scarred" in market_name:
+                    print(f"Проверка AWP Asiimov: {market_name} с ценой {price} евро")
+                    if price <= ITEMS_PRICE_LIMITS["AWP | Asiimov (Battle-Scarred)"]:
+                        message = f"🔔 Найден AWP Asiimov (Battle-Scarred):\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
+                        print(f"Найден AWP Asiimov: {message}")
                         send_telegram_message(message)
                         found = True
-                except ValueError:
-                    continue
 
         if not found:
             print("Ничего не найдено.")
-            send_telegram_message("⚠️ Нет AWP Asiimov (BS) по нужной цене.")
+            send_telegram_message("⚠️ Ничего не найдено из интересующих предметов.")
 
     except Exception as e:
-        print("Ошибка при парсинге:", e)
-        send_telegram_message(f"❗ Ошибка при парсинге страницы: {e}")
+        error_msg = f"❗ Ошибка при выполнении скрипта: {e}"
+        print(error_msg)
+        send_telegram_message(error_msg)
 
-# Основной цикл
+# 🔁 Запуск в цикле
 while True:
-    check_asiimovs()
+    check_items()
     time.sleep(120)  # Пауза 2 минуты
-
