@@ -56,13 +56,13 @@ def check_items():
             item_url = item.get("item_page", "")  # Используем item_page для точной ссылки
             unique_id = f"{market_name}:{price}"
 
-            # Логирование всех предметов для проверки
-            print(f"Товар: {market_name}, Цена: {price}, Ссылка: {item_url}")
+            # Логируем все товары для отладки
+            print(f"Проверка товара: {market_name}, Цена: {price}, Ссылка: {item_url}")
 
-            # Логика для поиска перчаток Sport Gloves | Bronze Morph
+            # Проверка для перчаток Sport Gloves | Bronze Morph
             if price is not None and "Sport Gloves" in market_name and "Bronze Morph" in market_name and price <= ITEMS_PRICE_LIMITS["Sport Gloves | Bronze Morph"] and unique_id not in found_items:
                 message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
-                print(message)
+                print(f"Найден товар: {message}")
                 send_telegram_message(message)
                 found_items.add(unique_id)
                 found = True
@@ -70,7 +70,7 @@ def check_items():
             # Логика для поиска ножей Talon Knife
             elif price is not None and "talon knife" in market_name.lower() and price <= ITEMS_PRICE_LIMITS["Talon Knife"] and unique_id not in found_items:
                 message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
-                print(message)
+                print(f"Найден нож: {message}")
                 send_telegram_message(message)
                 found_items.add(unique_id)
                 found = True
