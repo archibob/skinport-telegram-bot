@@ -1,18 +1,17 @@
 import requests
 import time
 
-# 🔧 Настройки
+# Настройки
 TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
 TELEGRAM_CHAT_ID = "388895285"
 API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
-# 🧲 Ключевые слова и максимальные цены
-ITEMS_PRICE_LIMITS = {
-    "talon knife": 300,       # в евро
-    "bronze morph": 150       # в евро
-}
+# Условия фильтра: что искать и по какой цене максимум
+FILTERS = [
+    {"keywords": ["talon knife"], "max_price": 300},
+    {"keywords": ["sport gloves", "bronze morph"], "max_price": 150},
+]
 
-# Храним ID уже найденных товаров
 found_items = set()
 
 def send_telegram_message(message):
@@ -37,42 +36,34 @@ def check_items():
             send_telegram_message(error_text)
             return
 
-        try:
-            items = response.json()
-        except Exception as e:
-            print("Ошибка при парсинге JSON:", e)
-            send_telegram_message(f"❗️ Ошибка при парсинге JSON: {e}")
-            return
-
+        items = response.json()
         print(f"Получено {len(items)} товаров")
 
         found = False
         for item in items:
-            market_name = item.get("market_hash_name", "")
+            market_name = item.get("market_hash_name", "").lower()
             price = item.get("min_price", None)
             item_id = item.get("id", None)
 
             if price is None or item_id is None:
                 continue
 
-            market_name_lower = market_name.lower()
-
-            for keyword, max_price in ITEMS_PRICE_LIMITS.items():
-                if keyword in market_name_lower and price <= max_price and item_id not in found_items:
-                    message = (
-                        f"🔔 Найден предмет:\n"
-                        f"{market_name}\n"
-                        f"💶 Цена: {price} EUR"
-                    )
-                    print(message)
-                    send_telegram_message(message)
-                    found_items.add(item_id)
-                    found = True
-                    break  # не проверяем другие ключевые слова
+            for f in FILTERS:
+                if all(keyword in market_name for keyword in f["keywords"]) and price <= f["max_price"]:
+                    if item_id not in found_items:
+                        message = (
+                            f"🔔 Найден предмет:\n"
+                            f"{item['market_hash_name']}\n"
+                            f"💶 Цена: {price} EUR"
+                        )
+                        print(message)
+                        send_telegram_message(message)
+                        found_items.add(item_id)
+                        found = True
+                    break
 
         if not found:
             print("Ничего не найдено.")
-            # Не шлём лишний раз Telegram, чтобы не спамить
 
     except Exception as e:
         error_msg = f"❗ Ошибка при выполнении скрипта: {e}"
