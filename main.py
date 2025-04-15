@@ -1,7 +1,7 @@
+import logging
 from telegram import Update
 from telegram.ext import Application, CommandHandler
-import logging
-import os
+import requests
 
 # Задаем токен и ID чата
 TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
@@ -39,5 +39,6 @@ async def main():
     await application.run_polling()
 
 if __name__ == '__main__':
-    import asyncio
-    asyncio.run(main())
+    # Запускаем бота без использования asyncio.run()
+    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+    application.run_polling()
