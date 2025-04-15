@@ -1,6 +1,6 @@
 import logging
 from telegram import Update
-from telegram.ext import Application, CommandHandler
+from telegram.ext import Application, CommandHandler, ContextTypes
 import requests
 
 # Задаем токен и ID чата
@@ -23,12 +23,38 @@ async def send_telegram_message(message: str):
         logger.error(f"Ошибка Telegram: {e}")
 
 # Команда /start для приветствия и описания команд
-async def start(update: Update, context):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.info(f"Команда /start от пользователя {update.message.from_user.username}")
     message = "Привет! Я бот для поиска предметов на Skinport.\n" \
-              "Используй команду /add для добавления нового предмета для поиска.\n" \
-              "Используй команду /remove для удаления предмета из поиска."
+              "Используй команду /add <название предмета> для добавления нового предмета.\n" \
+              "Используй команду /remove <название предмета> для удаления предмета."
     await update.message.reply_text(message)
+
+# Команда /add для добавления предмета
+async def add_item(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if len(context.args) < 1:
+        await update.message.reply_text("Пожалуйста, укажите название предмета для добавления.")
+        return
+
+    item_name = " ".join(context.args)
+    logger.info(f"Пользователь {update.message.from_user.username} добавил предмет: {item_name}")
+    # Здесь вы можете добавить логику для добавления предмета в базу данных или список.
+    
+    # Отправка подтверждения
+    await update.message.reply_text(f"Предмет '{item_name}' успешно добавлен в поиск.")
+
+# Команда /remove для удаления предмета
+async def remove_item(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if len(context.args) < 1:
+        await update.message.reply_text("Пожалуйста, укажите название предмета для удаления.")
+        return
+
+    item_name = " ".join(context.args)
+    logger.info(f"Пользователь {update.message.from_user.username} удалил предмет: {item_name}")
+    # Здесь вы можете добавить логику для удаления предмета из базы данных или списка.
+    
+    # Отправка подтверждения
+    await update.message.reply_text(f"Предмет '{item_name}' успешно удален из поиска.")
 
 # Основная функция для запуска бота
 def main():
@@ -37,6 +63,8 @@ def main():
 
     # Регистрация обработчиков команд
     application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("add", add_item))
+    application.add_handler(CommandHandler("remove", remove_item))
 
     # Запуск бота (переход на polling)
     logger.info("Бот запускается...")
