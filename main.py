@@ -2,20 +2,21 @@ import logging
 import requests
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
-from urllib.parse import quote
 
-# Задаем токен и ID чата
+# Токен и ID чата
 TELEGRAM_BOT_TOKEN = "8095985098:AAGmSZ1JZFunP2un1392Uh4gUg7LY3AjD6A"
 TELEGRAM_CHAT_ID = "388895285"
 
-# Настройка логирования
-logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
+# Логирование
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
 logger = logging.getLogger(__name__)
 
-# Хранилище предметов для поиска (можно заменить на базу данных)
-items_to_search = []
+# Хранилище отслеживаемых предметов в виде словаря: название -> макс. цена
+items_to_search = {}
 
-# Функция для отправки сообщений в Telegram
+# Отправка сообщения в Telegram
 async def send_telegram_message(message: str):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
@@ -26,106 +27,109 @@ async def send_telegram_message(message: str):
     except Exception as e:
         logger.error(f"Ошибка Telegram: {e}")
 
-# Команда /start для приветствия и описания команд
+# Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logger.info(f"Команда /start от пользователя {update.message.from_user.username}")
-    message = "Привет! Я бот для поиска предметов на Skinport.\n" \
-              "Используй команду /add <название предмета> для добавления нового предмета.\n" \
-              "Используй команду /remove <название предмета> для удаления предмета.\n" \
-              "Используй команду /search для поиска добавленных предметов."
+    message = (
+        "Привет! Я бот для поиска предметов на Skinport.\n"
+        "Команды:\n"
+        "/add <название> <макс_цена> — добавить предмет\n"
+        "/remove <название> — удалить предмет\n"
+        "/search — список предметов\n"
+        "/scan — ручной поиск по сайту"
+    )
     await update.message.reply_text(message)
 
-# Команда /add для добавления предмета
+# Команда /add
 async def add_item(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if len(context.args) < 1:
-        await update.message.reply_text("Пожалуйста, укажите название предмета для добавления.")
+    if len(context.args) < 2:
+        await update.message.reply_text("Используй: /add <название> <макс_цена>")
         return
 
-    item_name = " ".join(context.args)
-    logger.info(f"Пользователь {update.message.from_user.username} добавил предмет: {item_name}")
+    *name_parts, price_str = context.args
+    item_name = " ".join(name_parts)
 
-    # Добавляем предмет в хранилище
-    items_to_search.append(item_name)
+    try:
+        max_price = float(price_str.replace(",", "."))
+    except ValueError:
+        await update.message.reply_text("Неверный формат цены.")
+        return
 
-    # Отправка подтверждения
-    await update.message.reply_text(f"Предмет '{item_name}' успешно добавлен в поиск.")
+    items_to_search[item_name] = max_price
+    await update.message.reply_text(f"Добавлен: {item_name} до {max_price}€")
 
-# Команда /remove для удаления предмета
+# Команда /remove
 async def remove_item(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if len(context.args) < 1:
-        await update.message.reply_text("Пожалуйста, укажите название предмета для удаления.")
+    if not context.args:
+        await update.message.reply_text("Используй: /remove <название>")
         return
 
     item_name = " ".join(context.args)
-    logger.info(f"Пользователь {update.message.from_user.username} удалил предмет: {item_name}")
-
-    # Удаляем предмет из хранилища
     if item_name in items_to_search:
-        items_to_search.remove(item_name)
-        await update.message.reply_text(f"Предмет '{item_name}' успешно удален из поиска.")
+        del items_to_search[item_name]
+        await update.message.reply_text(f"Удалён: {item_name}")
     else:
-        await update.message.reply_text(f"Предмет '{item_name}' не найден в списке поиска.")
+        await update.message.reply_text(f"{item_name} не найден в списке.")
 
-# Команда /search для поиска добавленных предметов
+# Команда /search
 async def search_items(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not items_to_search:
-        await update.message.reply_text("Список предметов для поиска пуст.")
-    else:
-        message = "Вот список предметов для поиска:\n" + "\n".join(items_to_search)
-        await update.message.reply_text(message)
-
-# Команда /scan для сканирования предметов по API
-async def scan_items(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not items_to_search:
-        await update.message.reply_text("Список предметов для поиска пуст.")
+        await update.message.reply_text("Список отслеживаемых предметов пуст.")
         return
 
-    # Параметры для поиска
-    max_price = 80  # пример цены, можно сделать динамичным
+    message = "Отслеживаемые предметы:\n"
+    for item, price in items_to_search.items():
+        message += f"- {item} до {price}€\n"
+    await update.message.reply_text(message)
+
+# Команда /scan
+async def scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     found = []
+    url = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
-    # Ищем предметы через API
-    for item_name in items_to_search:
-        url = f"https://api.skinport.com/api/v1/search?query={item_name}&limit=20"
+    try:
         response = requests.get(url)
-        data = response.json().get("data", [])
+        data = response.json()
+        logger.info(f"Получено {len(data)} предметов от API")
 
-        for item in data:
-            name = item.get("market_hash_name", "")
-            min_price = item.get("min_price")
+        for entry in data:
+            name = entry.get("market_hash_name", "")
+            min_price = entry.get("min_price")
+            logger.info(f"Проверка предмета: {name} - цена: {min_price}")
 
-            # Проверка на None
-            if min_price is None:
-                continue
+        for item_name, max_price in items_to_search.items():
+            for entry in data:
+                name = entry.get("market_hash_name", "")
+                min_price = entry.get("min_price")
 
-            if item_name.lower() in name.lower() and float(min_price) <= max_price:
-                item_url_name = quote(name, safe='')
-                found.append(f"{name} за {min_price}€\nhttps://skinport.com/item/{item_url_name}")
+                if not min_price:
+                    continue
 
-    # Если предметы найдены, отправляем сообщения
+                if item_name.lower() in name.lower() and float(min_price) <= max_price:
+                    item_url_name = name.replace(" ", "%20").replace("|", "%7C")
+                    found.append(f"{name} за {min_price}€\nhttps://skinport.com/item/{item_url_name}")
+
+    except Exception as e:
+        logger.error(f"Ошибка при сканировании: {e}")
+        await update.message.reply_text("Произошла ошибка при сканировании.")
+        return
+
     if found:
-        message = "Найдены следующие предметы:\n" + "\n\n".join(found)
-        await send_telegram_message(message)
-        await update.message.reply_text("Поиск завершён. Результаты отправлены в чат.")
+        await update.message.reply_text("Найдены предметы:\n\n" + "\n\n".join(found))
     else:
-        await update.message.reply_text("По заданным критериям предметы не найдены.")
+        await update.message.reply_text("Ничего не найдено.")
 
-# Основная функция для запуска бота
+# Запуск бота
 def main():
-    # Создание объекта приложения
-    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+    app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
-    # Регистрация обработчиков команд
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("add", add_item))
-    application.add_handler(CommandHandler("remove", remove_item))
-    application.add_handler(CommandHandler("search", search_items))
-    application.add_handler(CommandHandler("scan", scan_items))
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("add", add_item))
+    app.add_handler(CommandHandler("remove", remove_item))
+    app.add_handler(CommandHandler("search", search_items))
+    app.add_handler(CommandHandler("scan", scan))
 
-    # Запуск бота (переход на polling)
     logger.info("Бот запускается...")
-    application.run_polling()
+    app.run_polling()
 
 if __name__ == '__main__':
-    # Прямо вызываем основной метод без asyncio.run()
     main()
