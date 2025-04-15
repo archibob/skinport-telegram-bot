@@ -2,11 +2,11 @@ import logging
 import requests
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
-from urllib.parse import quote_plus
 
 # Токен и ID чата
 TELEGRAM_BOT_TOKEN = "8095985098:AAGmSZ1JZFunP2un1392Uh4gUg7LY3AjD6A"
 TELEGRAM_CHAT_ID = "388895285"
+API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
 # Логирование
 logging.basicConfig(
@@ -85,7 +85,7 @@ async def search_items(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Команда /scan
 async def scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     found = []
-    url = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
+    url = API_URL
 
     try:
         response = requests.get(url)
@@ -95,20 +95,13 @@ async def scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for entry in data:
             name = entry.get("market_hash_name", "")
             min_price = entry.get("min_price")
-            logger.info(f"Проверка предмета: {name} - цена: {min_price}")
+            item_url = entry.get("item_page", "")
 
-        for item_name, max_price in items_to_search.items():
-            for entry in data:
-                name = entry.get("market_hash_name", "")
-                min_price = entry.get("min_price")
+            logger.info(f"Проверка предмета: {name} - цена: {min_price} - ссылка: {item_url}")
 
-                if not min_price:
-                    continue
-
-                if item_name.lower() in name.lower() and float(min_price) <= max_price:
-                    # Кодируем строку для URL
-                    item_url_name = quote_plus(name)
-                    found.append(f"{name} за {min_price}€\nhttps://skinport.com/item/{item_url_name}")
+            for item_name, max_price in items_to_search.items():
+                if item_name.lower() in name.lower() and min_price and float(min_price) <= max_price:
+                    found.append(f"{name} за {min_price}€\n🔗 {item_url}")
 
     except Exception as e:
         logger.error(f"Ошибка при сканировании: {e}")
