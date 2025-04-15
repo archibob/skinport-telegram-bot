@@ -2,11 +2,23 @@ import logging
 import requests
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
+from urllib.parse import quote_plus
+import time
 
 # Токен и ID чата
-TELEGRAM_BOT_TOKEN = "8095985098:AAGmSZ1JZFunP2un1392Uh4gUg7LY3AjD6A"
+TELEGRAM_BOT_TOKEN = "8095985098:AAEtmitWpYkvwSCTJGY0T8heSovDaeYB7AY"
 TELEGRAM_CHAT_ID = "388895285"
 API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
+
+# 🧲 Ключевые слова и максимальные цены (в евро)
+ITEMS_PRICE_LIMITS = {
+    "Sport Gloves | Bronze Morph": 150,
+    "Talon Knife": 300,
+    "AWP | Asiimov (Battle-Scarred)": 75
+}
+
+# Хранение отслеживаемых предметов по пользователям
+users_data = {}
 
 # Логирование
 logging.basicConfig(
@@ -14,22 +26,25 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Хранилище отслеживаемых предметов в виде словаря: название -> макс. цена
-items_to_search = {}
-
-# Отправка сообщения в Telegram
-async def send_telegram_message(message: str):
+def send_telegram_message(user_id, message):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
+    payload = {"chat_id": user_id, "text": message}
     try:
         response = requests.post(url, data=payload)
         if response.status_code != 200:
-            logger.error(f"Ошибка отправки в Telegram: {response.text}")
+            print("Ошибка отправки в Telegram:", response.text)
     except Exception as e:
-        logger.error(f"Ошибка Telegram: {e}")
+        print("Ошибка Telegram:", e)
+
+# Получение данных для пользователя
+def get_user_data(user_id):
+    if user_id not in users_data:
+        users_data[user_id] = {"items": {}, "limits": ITEMS_PRICE_LIMITS}
+    return users_data[user_id]
 
 # Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
     message = (
         "Привет! Я бот для поиска предметов на Skinport.\n"
         "Команды:\n"
@@ -42,6 +57,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Команда /add
 async def add_item(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    user_data = get_user_data(user_id)
+    
     if len(context.args) < 2:
         await update.message.reply_text("Используй: /add <название> <макс_цена>")
         return
@@ -55,63 +73,78 @@ async def add_item(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Неверный формат цены.")
         return
 
-    items_to_search[item_name] = max_price
+    user_data["items"][item_name] = max_price
     await update.message.reply_text(f"Добавлен: {item_name} до {max_price}€")
 
 # Команда /remove
 async def remove_item(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    user_data = get_user_data(user_id)
+    
     if not context.args:
         await update.message.reply_text("Используй: /remove <название>")
         return
 
     item_name = " ".join(context.args)
-    if item_name in items_to_search:
-        del items_to_search[item_name]
+    if item_name in user_data["items"]:
+        del user_data["items"][item_name]
         await update.message.reply_text(f"Удалён: {item_name}")
     else:
         await update.message.reply_text(f"{item_name} не найден в списке.")
 
 # Команда /search
 async def search_items(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not items_to_search:
+    user_id = update.message.from_user.id
+    user_data = get_user_data(user_id)
+    
+    if not user_data["items"]:
         await update.message.reply_text("Список отслеживаемых предметов пуст.")
         return
 
     message = "Отслеживаемые предметы:\n"
-    for item, price in items_to_search.items():
+    for item, price in user_data["items"].items():
         message += f"- {item} до {price}€\n"
     await update.message.reply_text(message)
 
 # Команда /scan
 async def scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    user_data = get_user_data(user_id)
     found = []
-    url = API_URL
-
+    
     try:
-        response = requests.get(url)
-        data = response.json()
-        logger.info(f"Получено {len(data)} предметов от API")
+        headers = {
+            "Accept-Encoding": "br",
+            "User-Agent": "Mozilla/5.0"
+        }
+        response = requests.get(API_URL, headers=headers)
+        if response.status_code != 200:
+            error_text = f"❌ Ошибка при запросе к Skinport: {response.status_code}\n{response.text}"
+            send_telegram_message(user_id, error_text)
+            return
 
-        for entry in data:
-            name = entry.get("market_hash_name", "")
-            min_price = entry.get("min_price")
-            item_url = entry.get("item_page", "")
+        items = response.json()
+        logger.info(f"Получено {len(items)} товаров")
 
-            logger.info(f"Проверка предмета: {name} - цена: {min_price} - ссылка: {item_url}")
+        for item in items:
+            market_name = item.get("market_hash_name", "")
+            price = item.get("min_price", None)
+            item_url = item.get("item_page", "")
 
-            for item_name, max_price in items_to_search.items():
-                if item_name.lower() in name.lower() and min_price and float(min_price) <= max_price:
-                    found.append(f"{name} за {min_price}€\n🔗 {item_url}")
+            if market_name in user_data["items"]:
+                max_price = user_data["items"][market_name]
+                if price and price <= max_price:
+                    message = f"🔔 Найден предмет:\n{market_name}\n💶 Цена: {price} EUR\n🔗 {item_url}"
+                    found.append(message)
+
+        if found:
+            await update.message.reply_text("\n\n".join(found))
+        else:
+            await update.message.reply_text("Ничего не найдено.")
 
     except Exception as e:
-        logger.error(f"Ошибка при сканировании: {e}")
-        await update.message.reply_text("Произошла ошибка при сканировании.")
-        return
-
-    if found:
-        await update.message.reply_text("Найдены предметы:\n\n" + "\n\n".join(found))
-    else:
-        await update.message.reply_text("Ничего не найдено.")
+        error_msg = f"❗ Ошибка при выполнении скрипта: {e}"
+        send_telegram_message(user_id, error_msg)
 
 # Запуск бота
 def main():
