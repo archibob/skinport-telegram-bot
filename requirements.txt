@@ -6,4 +6,4 @@ undetected-chromedriver
 webdriver-manager
 nest_asyncio
 python-telegram-bot==20.0
-
+python-telegram-bot[webhooks]
