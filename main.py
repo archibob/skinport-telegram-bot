@@ -5,7 +5,7 @@ import os
 import requests
 
 # Задаем токен и ID чата
-TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
+TELEGRAM_BOT_TOKEN = "8095985098:AAEtmitWpYkvwSCTJGY0T8heSovDaeYB7AY"
 TELEGRAM_CHAT_ID = "388895285"
 
 # Настройка логирования
