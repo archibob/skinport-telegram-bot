@@ -2,7 +2,7 @@ import logging
 import requests
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
-from urllib.parse import quote
+from urllib.parse import quote_plus
 
 # Токен и ID чата
 TELEGRAM_BOT_TOKEN = "8095985098:AAGmSZ1JZFunP2un1392Uh4gUg7LY3AjD6A"
@@ -106,8 +106,8 @@ async def scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     continue
 
                 if item_name.lower() in name.lower() and float(min_price) <= max_price:
-                    # Используем quote для правильного кодирования URL
-                    item_url_name = quote(name, safe='')
+                    # Кодируем пробелы и вертикальные черты
+                    item_url_name = name.replace(" ", "%20").replace("|", "%7C")
                     found.append(f"{name} за {min_price}€\nhttps://skinport.com/item/{item_url_name}")
 
     except Exception as e:
