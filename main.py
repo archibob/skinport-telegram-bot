@@ -106,8 +106,8 @@ async def scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     continue
 
                 if item_name.lower() in name.lower() and float(min_price) <= max_price:
-                    # Кодируем пробелы и вертикальные черты
-                    item_url_name = name.replace(" ", "%20").replace("|", "%7C")
+                    # Кодируем строку для URL
+                    item_url_name = quote_plus(name)
                     found.append(f"{name} за {min_price}€\nhttps://skinport.com/item/{item_url_name}")
 
     except Exception as e:
