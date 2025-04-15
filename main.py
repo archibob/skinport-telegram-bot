@@ -6,7 +6,7 @@ from urllib.parse import quote_plus
 import time
 
 # Токен и ID чата
-TELEGRAM_BOT_TOKEN = "8095985098:AAEtmitWpYkvwSCTJGY0T8heSovDaeYB7AY"
+TELEGRAM_BOT_TOKEN = "8095985098:AAGmSZ1JZFunP2un1392Uh4gUg7LY3AjD6A"
 TELEGRAM_CHAT_ID = "388895285"
 API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
