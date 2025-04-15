@@ -39,14 +39,11 @@ async def main():
     # Регистрация обработчиков команд
     application.add_handler(CommandHandler("start", start))
 
-    # Запуск бота
-    logger.info("Бот запускается...")
-    await application.run_polling()
+    # Запуск бота с использованием webhook
+    logger.info("Бот запускается через webhook...")
+    await application.run_webhook(listen="0.0.0.0", port=5000, url_path=TELEGRAM_BOT_TOKEN)
 
 if __name__ == '__main__':
     # Запускаем бота без использования asyncio.run(), т.к. в Railway уже есть активный цикл
-    import sys
-    from io import StringIO
-    sys.stdout = StringIO()
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
-    application.run_polling()
+    application.run_webhook(listen="0.0.0.0", port=5000, url_path=TELEGRAM_BOT_TOKEN)
