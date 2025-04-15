@@ -27,6 +27,7 @@ async def send_telegram_message(message: str):
 
 # Команда /start для приветствия и описания команд
 async def start(update: Update, context: CallbackContext):
+    logger.info(f"Received /start command from {update.message.from_user.id}")  # Логируем команду
     message = "Привет! Я бот для поиска предметов на Skinport.\n" \
               "Используй команду /add для добавления нового предмета для поиска.\n" \
               "Используй команду /remove для удаления предмета из поиска."
@@ -64,6 +65,8 @@ async def remove(update: Update, context: CallbackContext):
 
 # Основная функция для запуска бота
 async def main():
+    logger.info("Starting bot...")  # Логируем начало работы бота
+
     # Создание объекта приложения
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
@@ -76,7 +79,7 @@ async def main():
     await application.run_polling()
 
 if __name__ == '__main__':
+    logger.info("Running bot...")  # Логируем запуск основного блока
     # Запускаем бота без asyncio.run()
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
     application.run_polling()
-
