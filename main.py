@@ -88,7 +88,7 @@ def check_items():
             # Логирование для отладки
             print(f"Проверка товара: {market_name}, Цена: {price}, Ссылка: {item_url}")
 
-            # Проходим по всем предметам, которые есть в списке
+            # Проверяем только те предметы, которые есть в ITEMS_PRICE_LIMITS
             for item_name in ITEMS_PRICE_LIMITS:
                 if re.search(item_name, market_name, re.IGNORECASE):
                     print(f"Найдено соответствие для {item_name}: {market_name}")
