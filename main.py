@@ -77,6 +77,6 @@ async def main():
     await application.run_polling()
 
 if __name__ == '__main__':
-    # Просто вызови основной асинхронный метод без asyncio.run
+    # Прямо запускаем асинхронный цикл с использованием run_polling
     import asyncio
-    asyncio.create_task(main())
+    asyncio.run(main())
