@@ -1,11 +1,10 @@
 import logging
 from telegram import Update
 from telegram.ext import Application, CommandHandler
-import os
 import requests
 
 # Задаем токен и ID чата
-TELEGRAM_BOT_TOKEN = "8095985098:AAEtmitWpYkvwSCTJGY0T8heSovDaeYB7AY"
+TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
 TELEGRAM_CHAT_ID = "388895285"
 
 # Настройка логирования
@@ -32,21 +31,17 @@ async def start(update: Update, context):
     await update.message.reply_text(message)
 
 # Основная функция для запуска бота
-async def main():
+def main():
     # Создание объекта приложения
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
     # Регистрация обработчиков команд
     application.add_handler(CommandHandler("start", start))
 
-    # Запуск бота
+    # Запуск бота (переход на polling)
     logger.info("Бот запускается...")
-    await application.run_polling()
+    application.run_polling()
 
 if __name__ == '__main__':
-    # Запускаем бота без использования asyncio.run(), т.к. в Railway уже есть активный цикл
-    import sys
-    from io import StringIO
-    sys.stdout = StringIO()
-    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
-    application.run_polling()
+    # Прямо вызываем основной метод без asyncio.run()
+    main()
