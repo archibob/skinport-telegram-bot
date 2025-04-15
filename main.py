@@ -1,7 +1,9 @@
 import logging
 from telegram import Update
-from telegram.ext import Application, CommandHandler, CallbackContext
+from telegram.ext import Application, CommandHandler, MessageHandler, filters
+import os
 import requests
+import asyncio
 
 # Задаем токен и ID чата
 TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
@@ -26,15 +28,15 @@ async def send_telegram_message(message: str):
         logger.error(f"Ошибка Telegram: {e}")
 
 # Команда /start для приветствия и описания команд
-async def start(update: Update, context: CallbackContext):
-    logger.info(f"Received /start command from {update.message.from_user.id}")  # Логируем команду
+async def start(update: Update, context):
+    logger.info(f"Команда /start получена от пользователя: {update.message.from_user.id}")
     message = "Привет! Я бот для поиска предметов на Skinport.\n" \
               "Используй команду /add для добавления нового предмета для поиска.\n" \
               "Используй команду /remove для удаления предмета из поиска."
     await update.message.reply_text(message)
 
 # Команда /add для добавления предметов
-async def add(update: Update, context: CallbackContext):
+async def add(update: Update, context):
     if len(context.args) != 2:
         await update.message.reply_text("Ошибка! Используй команду как: /add <предмет> <макс. цена>")
         return
@@ -50,7 +52,7 @@ async def add(update: Update, context: CallbackContext):
     await update.message.reply_text(f"Предмет {item_name} добавлен с максимальной ценой {max_price} EUR.")
 
 # Команда /remove для удаления предметов
-async def remove(update: Update, context: CallbackContext):
+async def remove(update: Update, context):
     if len(context.args) != 1:
         await update.message.reply_text("Ошибка! Используй команду как: /remove <предмет>")
         return
@@ -65,8 +67,6 @@ async def remove(update: Update, context: CallbackContext):
 
 # Основная функция для запуска бота
 async def main():
-    logger.info("Starting bot...")  # Логируем начало работы бота
-
     # Создание объекта приложения
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
@@ -79,7 +79,6 @@ async def main():
     await application.run_polling()
 
 if __name__ == '__main__':
-    logger.info("Running bot...")  # Логируем запуск основного блока
-    # Запускаем бота без asyncio.run()
+    # Запускаем бота без использования asyncio.run(), т.к. в Railway уже есть активный цикл
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
     application.run_polling()
