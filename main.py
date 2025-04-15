@@ -2,19 +2,21 @@ import logging
 import requests
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
-from typing import List, Dict
 
+# Токен и ID чата
 TELEGRAM_BOT_TOKEN = "8095985098:AAGmSZ1JZFunP2un1392Uh4gUg7LY3AjD6A"
 TELEGRAM_CHAT_ID = "388895285"
 
-
-logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
+# Логирование
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
 logger = logging.getLogger(__name__)
 
-# Хранилище предметов: {"название": лимит_цены}
-items_to_search: Dict[str, float] = {}
+# Хранилище отслеживаемых предметов в виде словаря: название -> макс. цена
+items_to_search = {}
 
-# Функция для отправки сообщений
+# Отправка сообщения в Telegram
 async def send_telegram_message(message: str):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
@@ -27,88 +29,107 @@ async def send_telegram_message(message: str):
 
 # Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
+    message = (
         "Привет! Я бот для поиска предметов на Skinport.\n"
         "Команды:\n"
-        "/add <название> <макс_цена> - добавить предмет\n"
-        "/remove <название> - удалить предмет\n"
-        "/search - показать список\n"
-        "/scan - ручной поиск"
+        "/add <название> <макс_цена> — добавить предмет\n"
+        "/remove <название> — удалить предмет\n"
+        "/search — список предметов\n"
+        "/scan — ручной поиск по сайту"
     )
+    await update.message.reply_text(message)
 
 # Команда /add
 async def add_item(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) < 2:
-        await update.message.reply_text("Формат: /add <название> <макс_цена>")
+        await update.message.reply_text("Используй: /add <название> <макс_цена>")
         return
 
-    *item_parts, price = context.args
-    item_name = " ".join(item_parts)
+    *name_parts, price_str = context.args
+    item_name = " ".join(name_parts)
+
     try:
-        price_limit = float(price)
+        max_price = float(price_str.replace(",", "."))
     except ValueError:
-        await update.message.reply_text("Укажите корректную цену.")
+        await update.message.reply_text("Неверный формат цены.")
         return
 
-    items_to_search[item_name] = price_limit
-    await update.message.reply_text(f"Добавлено: {item_name} до {price_limit}€")
+    items_to_search[item_name] = max_price
+    await update.message.reply_text(f"Добавлен: {item_name} до {max_price}€")
 
 # Команда /remove
 async def remove_item(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        await update.message.reply_text("Формат: /remove <название>")
+        await update.message.reply_text("Используй: /remove <название>")
         return
 
     item_name = " ".join(context.args)
     if item_name in items_to_search:
         del items_to_search[item_name]
-        await update.message.reply_text(f"Удалено: {item_name}")
+        await update.message.reply_text(f"Удалён: {item_name}")
     else:
-        await update.message.reply_text("Предмет не найден.")
+        await update.message.reply_text(f"{item_name} не найден в списке.")
 
 # Команда /search
 async def search_items(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not items_to_search:
-        await update.message.reply_text("Список пуст.")
+        await update.message.reply_text("Список отслеживаемых предметов пуст.")
         return
 
-    message = "Следим за:\n"
+    message = "Отслеживаемые предметы:\n"
     for item, price in items_to_search.items():
-        message += f"{item} — до {price}€\n"
+        message += f"- {item} до {price}€\n"
     await update.message.reply_text(message)
 
 # Команда /scan
 async def scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     found = []
+    url = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
-    for item_name, max_price in items_to_search.items():
-        item_url_name = item_name.replace(" ", "%20")
-        url = f"https://api.skinport.com/v1/items?app_id=730&currency=EUR"
-        try:
-            response = requests.get(url)
-            data = response.json()
+    try:
+        response = requests.get(url)
+        data = response.json()
+        logger.info(f"Получено {len(data)} предметов от API")
+
+        for entry in data:
+            name = entry.get("market_hash_name", "")
+            min_price = entry.get("min_price")
+            logger.info(f"Проверка предмета: {name} - цена: {min_price}")
+
+        for item_name, max_price in items_to_search.items():
             for entry in data:
-                if entry["market_hash_name"] == item_name and entry["min_price"] <= max_price:
-                    found.append(f"{item_name}: {entry['min_price']}€\nhttps://skinport.com/item/{item_url_name}")
-        except Exception as e:
-            logger.error(f"Ошибка при сканировании: {e}")
+                name = entry.get("market_hash_name", "")
+                min_price = entry.get("min_price")
+
+                if not min_price:
+                    continue
+
+                if item_name.lower() in name.lower() and float(min_price) <= max_price:
+                    item_url_name = name.replace(" ", "%20").replace("|", "%7C")
+                    found.append(f"{name} за {min_price}€\nhttps://skinport.com/item/{item_url_name}")
+
+    except Exception as e:
+        logger.error(f"Ошибка при сканировании: {e}")
+        await update.message.reply_text("Произошла ошибка при сканировании.")
+        return
 
     if found:
-        await update.message.reply_text("Найдены предметы:\n" + "\n\n".join(found))
+        await update.message.reply_text("Найдены предметы:\n\n" + "\n\n".join(found))
     else:
         await update.message.reply_text("Ничего не найдено.")
 
+# Запуск бота
 def main():
-    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+    app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("add", add_item))
-    application.add_handler(CommandHandler("remove", remove_item))
-    application.add_handler(CommandHandler("search", search_items))
-    application.add_handler(CommandHandler("scan", scan))
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("add", add_item))
+    app.add_handler(CommandHandler("remove", remove_item))
+    app.add_handler(CommandHandler("search", search_items))
+    app.add_handler(CommandHandler("scan", scan))
 
-    logger.info("Бот запущен")
-    application.run_polling()
+    logger.info("Бот запускается...")
+    app.run_polling()
 
 if __name__ == '__main__':
     main()
