@@ -3,6 +3,7 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
 import os
 import requests
+import asyncio
 
 # Задаем токен и ID чата
 TELEGRAM_BOT_TOKEN = "8095985098:AAG0DtGHnzq5wXuwo2YlsdpflRvNHuG6glU"
@@ -77,6 +78,6 @@ async def main():
     await application.run_polling()
 
 if __name__ == '__main__':
-    # Прямо запускаем асинхронный цикл с использованием run_polling
-    import asyncio
-    asyncio.run(main())
+    # Запускаем бота без использования asyncio.run(), т.к. в Railway уже есть активный цикл
+    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+    application.run_polling()
