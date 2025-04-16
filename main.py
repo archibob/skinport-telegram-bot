@@ -18,7 +18,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 items_to_search = {}
-favorite_items = {}
+favorite_items = {}  # Здесь теперь будем хранить избранные предметы для каждого пользователя
 waiting_for_input = {}
 
 def normalize(text):
@@ -47,7 +47,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query.data == "add":
         waiting_for_input[user_id] = "add"
         await query.edit_message_text("Введите название предмета и (необязательно) цену:", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Назад", callback_data="back")]]))
-    elif query.data == "add_favorite":  # Обработка кнопки добавления в избранное
+    elif query.data == "add_favorite":  
         waiting_for_input[user_id] = "favorite"
         await query.edit_message_text("Введите название предмета и (необязательно) цену для добавления в избранное:", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Назад", callback_data="back")]]))
     elif query.data == "list":
@@ -67,18 +67,19 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif query.data == "scan":
         await scan(query, context)
     elif query.data == "favorites":
-        if not favorite_items:
+        user_favorites = favorite_items.get(user_id, {})
+        if not user_favorites:
             await query.edit_message_text("Избранное пусто.", reply_markup=main_keyboard())
             return
         keyboard = [
-            [InlineKeyboardButton(f"❌ {name}", callback_data=f"remove_favorite|{name}") for name in favorite_items.keys()]
+            [InlineKeyboardButton(f"❌ {name}", callback_data=f"remove_favorite|{name}") for name in user_favorites.keys()]
         ]
         keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="back")])
         await query.edit_message_text("Ваши избранные предметы:", reply_markup=InlineKeyboardMarkup(keyboard))
     elif query.data.startswith("remove_favorite|"):
         name = query.data.split("|", 1)[1]
-        if name in favorite_items:
-            del favorite_items[name]
+        if user_id in favorite_items and name in favorite_items[user_id]:
+            del favorite_items[user_id][name]
             await query.edit_message_text(f"Удалено из избранного: {name}", reply_markup=main_keyboard())
     elif query.data == "back":
         await query.edit_message_text("Выберите действие:", reply_markup=main_keyboard())
@@ -136,7 +137,10 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             min_price, max_price = 0, 999
 
-        favorite_items[item_name] = {"min": min_price, "max": max_price}
+        if user_id not in favorite_items:
+            favorite_items[user_id] = {}
+
+        favorite_items[user_id][item_name] = {"min": min_price, "max": max_price}
         await update.message.reply_text(
             f"✅ Добавлен в избранное: {item_name} от {min_price}€ до {max_price}€",
             reply_markup=main_keyboard()
@@ -170,13 +174,14 @@ async def scan(update_or_query, context: ContextTypes.DEFAULT_TYPE):
                         break
 
             # Check for favorite items
-            for item_name, price_range in favorite_items.items():
-                item_set = normalize(item_name)
-                if item_set.issubset(name_set) and min_price:
-                    min_price_f = float(min_price)
-                    if price_range["min"] <= min_price_f <= price_range["max"]:
-                        found.append(f"⭐ Избранное: {name} за {min_price}€\n🔗 {item_url}")
-                        break
+            for user_id, user_favorites in favorite_items.items():
+                for item_name, price_range in user_favorites.items():
+                    item_set = normalize(item_name)
+                    if item_set.issubset(name_set) and min_price:
+                        min_price_f = float(min_price)
+                        if price_range["min"] <= min_price_f <= price_range["max"]:
+                            found.append(f"⭐ Избранное: {name} за {min_price}€\n🔗 {item_url}")
+                            break
 
     except Exception as e:
         logger.error(f"Ошибка при сканировании: {e}")
@@ -216,21 +221,22 @@ async def scheduled_scan(context: ContextTypes.DEFAULT_TYPE):
                         break
 
             # Check for favorite items
-            for item_name, price_range in favorite_items.items():
-                item_set = normalize(item_name)
-                if item_set.issubset(name_set) and min_price:
-                    min_price_f = float(min_price)
-                    if price_range["min"] <= min_price_f <= price_range["max"]:
-                        found.append(f"⭐ Избранное: {name} за {min_price}€\n🔗 {item_url}")
-                        break
+            for user_id, user_favorites in favorite_items.items():
+                for item_name, price_range in user_favorites.items():
+                    item_set = normalize(item_name)
+                    if item_set.issubset(name_set) and min_price:
+                        min_price_f = float(min_price)
+                        if price_range["min"] <= min_price_f <= price_range["max"]:
+                            found.append(f"⭐ Избранное: {name} за {min_price}€\n🔗 {item_url}")
+                            break
 
     except Exception as e:
         logger.error(f"Ошибка при сканировании: {e}")
+        context.bot.send_message(TELEGRAM_CHAT_ID, f"Ошибка при регулярном сканировании: {e}")
         return
 
     if found:
         message = "\n\n".join(found)
-        # Send the message to the Telegram chat
         context.bot.send_message(TELEGRAM_CHAT_ID, f"Новые предметы:\n\n{message}")
 
 # Функция планирования регулярных сканирований
@@ -241,14 +247,14 @@ def start_scheduled_scan(app: Application):
 
 def main():
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
-    
+
     # Запуск планировщика для регулярных сканирований
     start_scheduled_scan(app)
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
-    
+
     app.run_polling()
 
 if __name__ == "__main__":
