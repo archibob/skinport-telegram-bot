@@ -30,7 +30,8 @@ def main_keyboard():
         [InlineKeyboardButton("➕ Добавить", callback_data="add")],
         [InlineKeyboardButton("📋 Список", callback_data="list")],
         [InlineKeyboardButton("🔍 Сканировать", callback_data="scan")],
-        [InlineKeyboardButton("⭐ Избранное", callback_data="favorites")]
+        [InlineKeyboardButton("⭐ Избранное", callback_data="favorites")],
+        [InlineKeyboardButton("➕ Добавить в избранное", callback_data="add_favorite")]  # Новая кнопка для добавления в избранное
     ]
     return InlineKeyboardMarkup(keyboard)
 
@@ -45,6 +46,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query.data == "add":
         waiting_for_input[user_id] = "add"
         await query.edit_message_text("Введите название предмета и (необязательно) цену:", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Назад", callback_data="back")]]))
+    elif query.data == "add_favorite":  # Обработка кнопки добавления в избранное
+        waiting_for_input[user_id] = "favorite"
+        await query.edit_message_text("Введите название предмета и (необязательно) цену для добавления в избранное:", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Назад", callback_data="back")]]))
     elif query.data == "list":
         if not items_to_search:
             await query.edit_message_text("Список пуст.", reply_markup=main_keyboard())
