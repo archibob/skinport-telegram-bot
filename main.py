@@ -93,22 +93,15 @@ async def search_items(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message += f"- {item} от {price_range['min']}€ до {price_range['max']}€\n"
     await update.message.reply_text(message)
 
-# Команда /scan (ручной поиск)
+# Команда /scan
 async def scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not context.args:
-        await update.message.reply_text("Используй: /scan <название предмета>")
-        return
-
-    search_query = " ".join(context.args).lower().strip()
     found = []
     url = API_URL
 
     try:
         response = requests.get(url)
         data = response.json()
-
-        # Для отладки добавим вывод полученных данных
-        logger.info(f"Ответ от API: {data}")
+        logger.info(f"Получено {len(data)} предметов от API")
 
         for entry in data:
             name = entry.get("market_hash_name", "")
@@ -120,14 +113,14 @@ async def scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 continue
 
             name_set = normalize(name)
-            search_set = normalize(search_query)
 
-            # Печать для отладки, что сравнивается
-            logger.info(f"Ищем: {search_query}, нашли: {name}, совпадение: {name_set.issubset(search_set)}")
-
-            if search_set.issubset(name_set) and min_price:
-                min_price_f = float(min_price)
-                found.append(f"{name} за {min_price}€\n🔗 {item_url}")
+            for item_name, price_range in items_to_search.items():
+                item_set = normalize(item_name)
+                if item_set.issubset(name_set) and min_price:
+                    min_price_f = float(min_price)
+                    if price_range["min"] <= min_price_f <= price_range["max"]:
+                        found.append(f"{name} за {min_price}€\n🔗 {item_url}")
+                        break
 
     except Exception as e:
         logger.error(f"Ошибка при сканировании: {e}")
