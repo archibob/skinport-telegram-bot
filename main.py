@@ -3,8 +3,9 @@ import requests
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
-import time
+from webdriver_manager.chrome import ChromeDriverManager
 
 # Токен и ID чата
 TELEGRAM_BOT_TOKEN = "8095985098:AAGmSZ1JZFunP2un1392Uh4gUg7LY3AjD6A"
@@ -96,34 +97,48 @@ async def search_items(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message += f"- {item} от {price_range['min']}€ до {price_range['max']}€\n"
     await update.message.reply_text(message)
 
-# Команда /scan (поиск через Selenium)
+# Команда /scan
 async def scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     found = []
+    url = API_URL
+
     try:
-        # Настроим Selenium
+        # Настройка драйвера с webdriver-manager
         chrome_options = Options()
-        chrome_options.add_argument("--headless")  # Без графического интерфейса
+        chrome_options.add_argument("--headless")
         chrome_options.add_argument("--no-sandbox")
-        driver = webdriver.Chrome(options=chrome_options)
+        chrome_options.add_argument("--disable-dev-shm-usage")
 
-        driver.get("https://skinport.com/market")
-        time.sleep(3)  # Подождём загрузки страницы
+        # Установка драйвера автоматически
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
 
-        # Получаем все товары
-        items = driver.find_elements_by_class_name("item-card")
-        logger.info(f"Найдено предметов: {len(items)}")
+        # Открываем страницу
+        driver.get(url)
+        driver.implicitly_wait(10)
 
-        for item in items:
-            name = item.find_element_by_class_name("item-name").text.lower()
-            price = item.find_element_by_class_name("item-price").text.replace("€", "").strip()
+        # Парсим HTML-страницу с предметами
+        # Допустим, парсим через driver.find_elements_by_xpath() и проверяем доступные предметы
+        items = driver.find_elements_by_xpath("//div[@class='item-container']")
+        
+        if items:
+            for item in items:
+                name = item.find_element_by_xpath(".//div[@class='item-name']").text
+                min_price = float(item.find_element_by_xpath(".//span[@class='price']").text.replace('€', '').strip())
+                item_url = item.find_element_by_xpath(".//a").get_attribute("href")
 
-            # Проверяем, если предмет соответствует условиям
-            for item_name, price_range in items_to_search.items():
-                if normalize(item_name).issubset(normalize(name)):
-                    item_price = float(price)
-                    if price_range["min"] <= item_price <= price_range["max"]:
-                        found.append(f"{name} за {price}€\n🔗 {item.get_attribute('href')}")
+                # Пропускаем граффити и подобное
+                if "graffiti" in name.lower():
+                    continue
 
+                name_set = normalize(name)
+
+                for item_name, price_range in items_to_search.items():
+                    item_set = normalize(item_name)
+                    if item_set.issubset(name_set) and min_price:
+                        min_price_f = float(min_price)
+                        if price_range["min"] <= min_price_f <= price_range["max"]:
+                            found.append(f"{name} за {min_price}€\n🔗 {item_url}")
+                            break
         driver.quit()
 
     except Exception as e:
