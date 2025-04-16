@@ -16,8 +16,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Словарь для хранения информации о отслеживаемых предметах
 items_to_search = {}
 waiting_for_input = {}
+favorites = {}
 
 def normalize(text):
     text = re.sub(r'\(.*?\)', '', text)
@@ -28,7 +30,8 @@ def main_keyboard():
     keyboard = [
         [InlineKeyboardButton("➕ Добавить", callback_data="add")],
         [InlineKeyboardButton("📋 Список", callback_data="list")],
-        [InlineKeyboardButton("🔍 Сканировать", callback_data="scan")]
+        [InlineKeyboardButton("🔍 Сканировать", callback_data="scan")],
+        [InlineKeyboardButton("⭐ Избранные", callback_data="favorites")]  # Кнопка избранных
     ]
     return InlineKeyboardMarkup(keyboard)
 
@@ -60,6 +63,21 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.message.reply_text(f"Удалено: {name}", reply_markup=main_keyboard())
     elif query.data == "scan":
         await scan(query, context)
+    elif query.data == "favorites":
+        if not favorites:
+            await query.message.reply_text("Избранных предметов нет.", reply_markup=main_keyboard())
+            return
+        keyboard = [
+            [InlineKeyboardButton(f"❌ {name}", callback_data=f"remove_favorite|{name}")]
+            for name in favorites.keys()
+        ]
+        keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="back")])
+        await query.message.reply_text("Избранные предметы:", reply_markup=InlineKeyboardMarkup(keyboard))
+    elif query.data.startswith("remove_favorite|"):
+        name = query.data.split("|", 1)[1]
+        if name in favorites:
+            del favorites[name]
+            await query.message.reply_text(f"Удалено из избранного: {name}", reply_markup=main_keyboard())
     elif query.data == "back":
         await query.message.reply_text("Выберите действие:", reply_markup=main_keyboard())
 
@@ -83,7 +101,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if len(prices) == 2:
             min_price, max_price = prices
         elif len(prices) == 1:
-            min_price, max_price = 0, prices[0]
+            min_price, max_price = prices[0], prices[0]
         else:
             min_price, max_price = 0, 999
 
@@ -93,6 +111,13 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=main_keyboard()
         )
         del waiting_for_input[user_id]
+
+        # Добавление в избранные
+        favorites[item_name] = {"min": min_price, "max": max_price}
+        await update.message.reply_text(
+            f"✅ Добавлен в избранное: {item_name} от {min_price}€ до {max_price}€",
+            reply_markup=main_keyboard()
+        )
 
 async def scan(update_or_query, context: ContextTypes.DEFAULT_TYPE):
     found = []
@@ -112,12 +137,22 @@ async def scan(update_or_query, context: ContextTypes.DEFAULT_TYPE):
 
             name_set = normalize(name)
 
+            # Проверка на отслеживаемые предметы
             for item_name, price_range in items_to_search.items():
                 item_set = normalize(item_name)
                 if item_set.issubset(name_set) and min_price:
                     min_price_f = float(min_price)
                     if price_range["min"] <= min_price_f <= price_range["max"]:
                         found.append(f"{name} за {min_price}€\n🔗 {item_url}")
+                        break
+
+            # Проверка на избранные предметы
+            for item_name, price_range in favorites.items():
+                item_set = normalize(item_name)
+                if item_set.issubset(name_set) and min_price:
+                    min_price_f = float(min_price)
+                    if price_range["min"] <= min_price_f <= price_range["max"]:
+                        found.append(f"⭐ {name} за {min_price}€\n🔗 {item_url}")
                         break
 
     except Exception as e:
