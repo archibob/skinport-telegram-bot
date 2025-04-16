@@ -1,13 +1,4 @@
 [build]
-packages = [
-  "chromium",
-  "chromium-chromedriver"
-]
-
-[env]
-CHROME_BIN = "/usr/bin/chromium"
-CHROMEDRIVER_PATH = "/usr/bin/chromedriver"
-[build]
   command = "pip install -r requirements.txt"
 
 [dependencies]
@@ -25,4 +16,3 @@ CHROMEDRIVER_PATH = "/usr/bin/chromedriver"
   libnss3-1d = "3.60"
   libappindicator3-1 = "12.10.0"
   xorg-server-xvfb = "1.20.4"
- 
