@@ -7,3 +7,4 @@ python-telegram-bot[webhooks]
 selenium
 requests
 webdriver-manager
+python-telegram-bot[job-queue]
