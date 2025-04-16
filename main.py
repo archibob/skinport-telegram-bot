@@ -1,12 +1,8 @@
 import logging
 import requests
+import re
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.common.by import By
 
 # Токен и ID чата
 TELEGRAM_BOT_TOKEN = "8095985098:AAGmSZ1JZFunP2un1392Uh4gUg7LY3AjD6A"
@@ -20,12 +16,16 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Хранилище отслеживаемых предметов
-# Пример: {"ak 47 asiimov": {"min": 20.0, "max": 40.0}}
 items_to_search = {}
 
-# Функция нормализации названий
+# Функция нормализации названий (с удалением ненужных символов)
 def normalize(text):
-    return set(text.lower().replace("|", "").replace("-", "").split())
+    # Убираем все ненужные символы, такие как скобки, но оставляем пробелы и тире для разделения частей названия
+    text = re.sub(r'\(.*?\)', '', text)  # Убираем модификаторы состояния, например (Well-Worn)
+    text = text.lower().replace("-", " ").replace("|", " ").strip()  # Преобразуем в нижний регистр и заменяем тире и вертикальные черты на пробелы
+    normalized_text = set(text.split())  # Разделяем по пробелам
+    logger.info(f"Нормализованный текст: {normalized_text}")
+    return normalized_text
 
 # Отправка сообщения в Telegram
 async def send_telegram_message(message: str):
@@ -104,42 +104,30 @@ async def scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = API_URL
 
     try:
-        # Настройка драйвера с webdriver-manager
-        chrome_options = Options()
-        chrome_options.add_argument("--headless")
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--disable-dev-shm-usage")
+        response = requests.get(url)
+        data = response.json()
+        logger.info(f"Получено {len(data)} предметов от API")
 
-        # Установка драйвера автоматически
-        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+        for entry in data:
+            name = entry.get("market_hash_name", "")
+            min_price = entry.get("min_price")
+            item_url = entry.get("item_page", "")
 
-        # Открываем страницу
-        driver.get(url)
-        driver.implicitly_wait(10)
+            # Пропускаем граффити и подобное
+            if "graffiti" in name.lower():
+                continue
 
-        # Парсим HTML-страницу с предметами
-        items = driver.find_elements(By.XPATH, "//div[@class='item-container']")
-        
-        if items:
-            for item in items:
-                name = item.find_element(By.XPATH, ".//div[@class='item-name']").text
-                min_price = float(item.find_element(By.XPATH, ".//span[@class='price']").text.replace('€', '').strip())
-                item_url = item.find_element(By.XPATH, ".//a").get_attribute("href")
+            logger.info(f"Проверка предмета: {name} с ценой {min_price}€")
 
-                # Пропускаем граффити и подобное
-                if "graffiti" in name.lower():
-                    continue
+            name_set = normalize(name)
 
-                name_set = normalize(name)
-
-                for item_name, price_range in items_to_search.items():
-                    item_set = normalize(item_name)
-                    if item_set.issubset(name_set) and min_price:
-                        min_price_f = float(min_price)
-                        if price_range["min"] <= min_price_f <= price_range["max"]:
-                            found.append(f"{name} за {min_price}€\n🔗 {item_url}")
-                            break
-        driver.quit()
+            for item_name, price_range in items_to_search.items():
+                item_set = normalize(item_name)
+                if item_set.issubset(name_set) and min_price:
+                    min_price_f = float(min_price)
+                    if price_range["min"] <= min_price_f <= price_range["max"]:
+                        found.append(f"{name} за {min_price}€\n🔗 {item_url}")
+                        break
 
     except Exception as e:
         logger.error(f"Ошибка при сканировании: {e}")
