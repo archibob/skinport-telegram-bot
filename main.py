@@ -15,12 +15,13 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Хранилище отслеживаемых предметов
-# Пример: {"ak 47 asiimov": {"min": 20.0, "max": 40.0}}
 items_to_search = {}
 
 # Функция нормализации названий
 def normalize(text):
-    return set(text.lower().replace("|", "").replace("-", "").split())
+    normalized_text = set(text.lower().replace("|", "").replace("-", "").split())
+    logger.info(f"Нормализованный текст: {normalized_text}")
+    return normalized_text
 
 # Отправка сообщения в Telegram
 async def send_telegram_message(message: str):
@@ -111,6 +112,8 @@ async def scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Пропускаем граффити и подобное
             if "graffiti" in name.lower():
                 continue
+
+            logger.info(f"Проверка предмета: {name} с ценой {min_price}€")
 
             name_set = normalize(name)
 
