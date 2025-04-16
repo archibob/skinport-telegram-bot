@@ -211,3 +211,17 @@ async def scan(update_or_query, context: ContextTypes.DEFAULT_TYPE):
         await update_or_query.edit_message_text("Найдены предметы:\n\n" + "\n\n".join(found), reply_markup=main_keyboard())
     else:
         await update_or_query.edit_message_text("Ничего не найдено.", reply_markup=main_keyboard())
+
+async def main():
+    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CallbackQueryHandler(button_handler))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
+
+    # Запуск бота
+    await application.run_polling()
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
