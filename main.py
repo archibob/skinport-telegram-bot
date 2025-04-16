@@ -1,6 +1,5 @@
 import logging
 import requests
-import re
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
@@ -16,16 +15,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Хранилище отслеживаемых предметов
+# Пример: {"ak 47 asiimov": {"min": 20.0, "max": 40.0}}
 items_to_search = {}
 
-# Функция нормализации названий (с удалением ненужных символов)
+# Функция нормализации названий
 def normalize(text):
-    # Убираем все ненужные символы, такие как скобки, но оставляем пробелы и тире для разделения частей названия
-    text = re.sub(r'\(.*?\)', '', text)  # Убираем модификаторы состояния, например (Well-Worn)
-    text = text.lower().replace("-", " ").replace("|", " ").strip()  # Преобразуем в нижний регистр и заменяем тире и вертикальные черты на пробелы
-    normalized_text = set(text.split())  # Разделяем по пробелам
-    logger.info(f"Нормализованный текст: {normalized_text}")
-    return normalized_text
+    return set(text.lower().replace("|", "").replace("-", "").split())
 
 # Отправка сообщения в Telegram
 async def send_telegram_message(message: str):
@@ -98,41 +93,48 @@ async def search_items(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message += f"- {item} от {price_range['min']}€ до {price_range['max']}€\n"
     await update.message.reply_text(message)
 
-# Команда /scan
+# Команда /scan с поддержкой пагинации
 async def scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     found = []
     url = API_URL
+    page = 1  # Начинаем с первой страницы
 
-    try:
-        response = requests.get(url)
-        data = response.json()
-        logger.info(f"Получено {len(data)} предметов от API")
+    while True:
+        try:
+            # Добавляем параметр page в запрос
+            response = requests.get(f"{url}&page={page}")
+            data = response.json()
+            logger.info(f"Получено {len(data)} предметов от API на странице {page}")
 
-        for entry in data:
-            name = entry.get("market_hash_name", "")
-            min_price = entry.get("min_price")
-            item_url = entry.get("item_page", "")
+            # Если данных на текущей странице нет, то выходим из цикла
+            if not data:
+                break
 
-            # Пропускаем граффити и подобное
-            if "graffiti" in name.lower():
-                continue
+            for entry in data:
+                name = entry.get("market_hash_name", "")
+                min_price = entry.get("min_price")
+                item_url = entry.get("item_page", "")
 
-            logger.info(f"Проверка предмета: {name} с ценой {min_price}€")
+                # Пропускаем граффити и подобное
+                if "graffiti" in name.lower():
+                    continue
 
-            name_set = normalize(name)
+                name_set = normalize(name)
 
-            for item_name, price_range in items_to_search.items():
-                item_set = normalize(item_name)
-                if item_set.issubset(name_set) and min_price:
-                    min_price_f = float(min_price)
-                    if price_range["min"] <= min_price_f <= price_range["max"]:
-                        found.append(f"{name} за {min_price}€\n🔗 {item_url}")
-                        break
+                for item_name, price_range in items_to_search.items():
+                    item_set = normalize(item_name)
+                    if item_set.issubset(name_set) and min_price:
+                        min_price_f = float(min_price)
+                        if price_range["min"] <= min_price_f <= price_range["max"]:
+                            found.append(f"{name} за {min_price}€\n🔗 {item_url}")
+                            break
 
-    except Exception as e:
-        logger.error(f"Ошибка при сканировании: {e}")
-        await update.message.reply_text("Произошла ошибка при сканировании.")
-        return
+            page += 1  # Переходим к следующей странице
+
+        except Exception as e:
+            logger.error(f"Ошибка при сканировании: {e}")
+            await update.message.reply_text("Произошла ошибка при сканировании.")
+            return
 
     if found:
         await update.message.reply_text("Найдены предметы:\n\n" + "\n\n".join(found))
