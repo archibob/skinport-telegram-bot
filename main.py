@@ -17,9 +17,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-items_to_search = {}
-favorite_items = {}  # Здесь теперь будем хранить избранные предметы для каждого пользователя
-waiting_for_input = {}
+user_items_to_search = {}  # индивидуальные списки предметов
+favorite_items = {}  # избранное
+waiting_for_input = {}  # ввод предметов
 
 def normalize(text):
     text = re.sub(r'\(.*?\)', '', text)
@@ -44,41 +44,41 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     user_id = query.from_user.id
 
+    user_items_to_search.setdefault(user_id, {})
+    favorite_items.setdefault(user_id, {})
+
     if query.data == "add":
         waiting_for_input[user_id] = "add"
         await query.edit_message_text("Введите название предмета и (необязательно) цену:", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Назад", callback_data="back")]]))
-    elif query.data == "add_favorite":  
+    elif query.data == "add_favorite":
         waiting_for_input[user_id] = "favorite"
         await query.edit_message_text("Введите название предмета и (необязательно) цену для добавления в избранное:", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Назад", callback_data="back")]]))
     elif query.data == "list":
-        if not items_to_search:
+        items = user_items_to_search.get(user_id, {})
+        if not items:
             await query.edit_message_text("Список пуст.", reply_markup=main_keyboard())
             return
-        keyboard = [
-            [InlineKeyboardButton(f"❌ {name}", callback_data=f"delete|{name}") for name in items_to_search.keys()]
-        ]
+        keyboard = [[InlineKeyboardButton(f"❌ {name}", callback_data=f"delete|{name}")] for name in items.keys()]
         keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="back")])
         await query.edit_message_text("Ваши предметы:", reply_markup=InlineKeyboardMarkup(keyboard))
     elif query.data.startswith("delete|"):
         name = query.data.split("|", 1)[1]
-        if name in items_to_search:
-            del items_to_search[name]
+        if name in user_items_to_search.get(user_id, {}):
+            del user_items_to_search[user_id][name]
             await query.edit_message_text(f"Удалено: {name}", reply_markup=main_keyboard())
     elif query.data == "scan":
         await scan(query, context)
     elif query.data == "favorites":
-        user_favorites = favorite_items.get(user_id, {})
-        if not user_favorites:
+        favs = favorite_items.get(user_id, {})
+        if not favs:
             await query.edit_message_text("Избранное пусто.", reply_markup=main_keyboard())
             return
-        keyboard = [
-            [InlineKeyboardButton(f"❌ {name}", callback_data=f"remove_favorite|{name}") for name in user_favorites.keys()]
-        ]
+        keyboard = [[InlineKeyboardButton(f"❌ {name}", callback_data=f"remove_favorite|{name}")] for name in favs.keys()]
         keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="back")])
         await query.edit_message_text("Ваши избранные предметы:", reply_markup=InlineKeyboardMarkup(keyboard))
     elif query.data.startswith("remove_favorite|"):
         name = query.data.split("|", 1)[1]
-        if user_id in favorite_items and name in favorite_items[user_id]:
+        if name in favorite_items.get(user_id, {}):
             del favorite_items[user_id][name]
             await query.edit_message_text(f"Удалено из избранного: {name}", reply_markup=main_keyboard())
     elif query.data == "back":
@@ -86,105 +86,69 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
-    if waiting_for_input.get(user_id) == "add":
-        parts = update.message.text.strip().split()
-        if not parts:
-            await update.message.reply_text("Название не распознано.", reply_markup=main_keyboard())
-            return
+    state = waiting_for_input.get(user_id)
+    if not state:
+        return
 
-        prices = []
-        while parts and re.match(r"^\d+([.,]\d+)?$", parts[-1]):
-            prices.insert(0, float(parts.pop().replace(",", ".")))
+    parts = update.message.text.strip().split()
+    if not parts:
+        await update.message.reply_text("Название не распознано.", reply_markup=main_keyboard())
+        return
 
-        item_name = " ".join(parts).lower()
-        if not item_name:
-            await update.message.reply_text("Название не распознано.", reply_markup=main_keyboard())
-            return
+    prices = []
+    while parts and re.match(r"^\d+([.,]\d+)?$", parts[-1]):
+        prices.insert(0, float(parts.pop().replace(",", ".")))
 
-        if len(prices) == 2:
-            min_price, max_price = prices
-        elif len(prices) == 1:
-            min_price, max_price = 0, prices[0]
-        else:
-            min_price, max_price = 0, 999
+    item_name = " ".join(parts).lower()
+    if not item_name:
+        await update.message.reply_text("Название не распознано.", reply_markup=main_keyboard())
+        return
 
-        items_to_search[item_name] = {"min": min_price, "max": max_price}
-        await update.message.reply_text(
-            f"✅ Добавлен: {item_name} от {min_price}€ до {max_price}€",
-            reply_markup=main_keyboard()
-        )
-        del waiting_for_input[user_id]
+    if len(prices) == 2:
+        min_price, max_price = prices
+    elif len(prices) == 1:
+        min_price, max_price = 0, prices[0]
+    else:
+        min_price, max_price = 0, 999
 
-    elif waiting_for_input.get(user_id) == "favorite":
-        parts = update.message.text.strip().split()
-        if not parts:
-            await update.message.reply_text("Название не распознано.", reply_markup=main_keyboard())
-            return
+    if state == "add":
+        user_items_to_search.setdefault(user_id, {})[item_name] = {"min": min_price, "max": max_price}
+        await update.message.reply_text(f"✅ Добавлен: {item_name} от {min_price}€ до {max_price}€", reply_markup=main_keyboard())
+    elif state == "favorite":
+        favorite_items.setdefault(user_id, {})[item_name] = {"min": min_price, "max": max_price}
+        await update.message.reply_text(f"✅ Добавлен в избранное: {item_name} от {min_price}€ до {max_price}€", reply_markup=main_keyboard())
 
-        prices = []
-        while parts and re.match(r"^\d+([.,]\d+)?$", parts[-1]):
-            prices.insert(0, float(parts.pop().replace(",", ".")))
-
-        item_name = " ".join(parts).lower()
-        if not item_name:
-            await update.message.reply_text("Название не распознано.", reply_markup=main_keyboard())
-            return
-
-        if len(prices) == 2:
-            min_price, max_price = prices
-        elif len(prices) == 1:
-            min_price, max_price = 0, prices[0]
-        else:
-            min_price, max_price = 0, 999
-
-        if user_id not in favorite_items:
-            favorite_items[user_id] = {}
-
-        favorite_items[user_id][item_name] = {"min": min_price, "max": max_price}
-        await update.message.reply_text(
-            f"✅ Добавлен в избранное: {item_name} от {min_price}€ до {max_price}€",
-            reply_markup=main_keyboard()
-        )
-        del waiting_for_input[user_id]
+    del waiting_for_input[user_id]
 
 async def scan(update_or_query, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update_or_query.from_user.id  # Получаем ID текущего пользователя
+    user_id = update_or_query.from_user.id
     found = []
-    url = API_URL
-
     try:
-        response = requests.get(url)
+        response = requests.get(API_URL)
         data = response.json()
 
         for entry in data:
             name = entry.get("market_hash_name", "")
             min_price = entry.get("min_price")
             item_url = entry.get("item_page", "")
-
             if "graffiti" in name.lower():
                 continue
 
             name_set = normalize(name)
 
-            # Проверяем обычные предметы
-            for item_name, price_range in items_to_search.items():
-                item_set = normalize(item_name)
-                if item_set.issubset(name_set) and min_price:
-                    min_price_f = float(min_price)
-                    if price_range["min"] <= min_price_f <= price_range["max"]:
+            for item_name, price_range in user_items_to_search.get(user_id, {}).items():
+                if normalize(item_name).issubset(name_set) and min_price:
+                    price = float(min_price)
+                    if price_range["min"] <= price <= price_range["max"]:
                         found.append(f"{name} за {min_price}€\n🔗 {item_url}")
                         break
 
-            # Проверяем избранные предметы только для текущего пользователя
-            if user_id in favorite_items:
-                for item_name, price_range in favorite_items[user_id].items():
-                    item_set = normalize(item_name)
-                    if item_set.issubset(name_set) and min_price:
-                        min_price_f = float(min_price)
-                        if price_range["min"] <= min_price_f <= price_range["max"]:
-                            found.append(f"⭐ Избранное: {name} за {min_price}€\n🔗 {item_url}")
-                            break
-
+            for item_name, price_range in favorite_items.get(user_id, {}).items():
+                if normalize(item_name).issubset(name_set) and min_price:
+                    price = float(min_price)
+                    if price_range["min"] <= price <= price_range["max"]:
+                        found.append(f"⭐ Избранное: {name} за {min_price}€\n🔗 {item_url}")
+                        break
     except Exception as e:
         logger.error(f"Ошибка при сканировании: {e}")
         await update_or_query.edit_message_text("Произошла ошибка при сканировании.", reply_markup=main_keyboard())
@@ -195,54 +159,33 @@ async def scan(update_or_query, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update_or_query.edit_message_text("Ничего не найдено.", reply_markup=main_keyboard())
 
-# Функция для регулярного сканирования по расписанию
+# Плановое сканирование (можно отключить или адаптировать под хранение ID пользователей)
 async def scheduled_scan(context: ContextTypes.DEFAULT_TYPE):
-    found = []
-    url = API_URL
-
     try:
-        response = requests.get(url)
+        response = requests.get(API_URL)
         data = response.json()
+    except Exception as e:
+        logger.error(f"Ошибка при регулярном сканировании: {e}")
+        return
 
+    for user_id in favorite_items:
+        found = []
         for entry in data:
             name = entry.get("market_hash_name", "")
             min_price = entry.get("min_price")
             item_url = entry.get("item_page", "")
-
             if "graffiti" in name.lower():
                 continue
-
             name_set = normalize(name)
-
-            # Проверяем обычные предметы
-            for item_name, price_range in items_to_search.items():
-                item_set = normalize(item_name)
-                if item_set.issubset(name_set) and min_price:
-                    min_price_f = float(min_price)
-                    if price_range["min"] <= min_price_f <= price_range["max"]:
-                        found.append(f"{name} за {min_price}€\n🔗 {item_url}")
+            for item_name, price_range in favorite_items[user_id].items():
+                if normalize(item_name).issubset(name_set) and min_price:
+                    price = float(min_price)
+                    if price_range["min"] <= price <= price_range["max"]:
+                        found.append(f"⭐ {name} за {min_price}€\n🔗 {item_url}")
                         break
+        if found:
+            await context.bot.send_message(user_id, "Новые предметы:\n\n" + "\n\n".join(found))
 
-            # Проверяем избранные предметы только для каждого пользователя
-            for user_id, user_favorites in favorite_items.items():
-                for item_name, price_range in user_favorites.items():
-                    item_set = normalize(item_name)
-                    if item_set.issubset(name_set) and min_price:
-                        min_price_f = float(min_price)
-                        if price_range["min"] <= min_price_f <= price_range["max"]:
-                            found.append(f"⭐ Избранное: {name} за {min_price}€\n🔗 {item_url}")
-                            break
-
-    except Exception as e:
-        logger.error(f"Ошибка при сканировании: {e}")
-        context.bot.send_message(TELEGRAM_CHAT_ID, f"Ошибка при регулярном сканировании: {e}")
-        return
-
-    if found:
-        message = "\n\n".join(found)
-        context.bot.send_message(TELEGRAM_CHAT_ID, f"Новые предметы:\n\n{message}")
-
-# Функция планирования регулярных сканирований
 def start_scheduled_scan(app: Application):
     scheduler = BackgroundScheduler()
     scheduler.add_job(scheduled_scan, 'interval', minutes=5, args=[app])
@@ -251,7 +194,6 @@ def start_scheduled_scan(app: Application):
 def main():
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
-    # Запуск планировщика для регулярных сканирований
     start_scheduled_scan(app)
 
     app.add_handler(CommandHandler("start", start))
