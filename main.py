@@ -1,5 +1,6 @@
 import logging
-import requests
+import aiohttp
+import asyncio
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
@@ -15,21 +16,21 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Хранилище отслеживаемых предметов
-# Пример: {"ak 47 asiimov": {"min": 20.0, "max": 40.0}}
 items_to_search = {}
 
 # Функция нормализации названий
 def normalize(text):
     return set(text.lower().replace("|", "").replace("-", "").split())
 
-# Отправка сообщения в Telegram
+# Асинхронная отправка сообщения в Telegram
 async def send_telegram_message(message: str):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
     try:
-        response = requests.post(url, data=payload)
-        if response.status_code != 200:
-            logger.error(f"Ошибка отправки в Telegram: {response.text}")
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, data=payload) as response:
+                if response.status != 200:
+                    logger.error(f"Ошибка отправки в Telegram: {response.text()}")
     except Exception as e:
         logger.error(f"Ошибка Telegram: {e}")
 
@@ -99,28 +100,29 @@ async def scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = API_URL
 
     try:
-        response = requests.get(url)
-        data = response.json()
-        logger.info(f"Получено {len(data)} предметов от API")
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                data = await response.json()
+                logger.info(f"Получено {len(data)} предметов от API")
 
-        for entry in data:
-            name = entry.get("market_hash_name", "")
-            min_price = entry.get("min_price")
-            item_url = entry.get("item_page", "")
+                for entry in data:
+                    name = entry.get("market_hash_name", "")
+                    min_price = entry.get("min_price")
+                    item_url = entry.get("item_page", "")
 
-            # Пропускаем граффити и подобное
-            if "graffiti" in name.lower():
-                continue
+                    # Пропускаем граффити и подобное
+                    if "graffiti" in name.lower():
+                        continue
 
-            name_set = normalize(name)
+                    name_set = normalize(name)
 
-            for item_name, price_range in items_to_search.items():
-                item_set = normalize(item_name)
-                if item_set.issubset(name_set) and min_price:
-                    min_price_f = float(min_price)
-                    if price_range["min"] <= min_price_f <= price_range["max"]:
-                        found.append(f"{name} за {min_price}€\n🔗 {item_url}")
-                        break
+                    for item_name, price_range in items_to_search.items():
+                        item_set = normalize(item_name)
+                        if item_set.issubset(name_set) and min_price:
+                            min_price_f = float(min_price)
+                            if price_range["min"] <= min_price_f <= price_range["max"]:
+                                found.append(f"{name} за {min_price}€\n🔗 {item_url}")
+                                break
 
     except Exception as e:
         logger.error(f"Ошибка при сканировании: {e}")
