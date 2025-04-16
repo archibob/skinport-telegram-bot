@@ -233,7 +233,7 @@ async def scheduled_scan(context: ContextTypes.DEFAULT_TYPE):
             context.bot.send_message(user_id, "Найдены предметы:\n\n" + "\n\n".join(found))
 
 # Планирование задачи для периодического сканирования
-def start_scheduled_scan():
+def start_scheduled_scan(app):
     scheduler = BackgroundScheduler()
     scheduler.add_job(scheduled_scan, 'interval', minutes=5, args=[app.context])
     scheduler.start()
@@ -244,7 +244,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
-    start_scheduled_scan()  # Начинаем периодическое сканирование
+    start_scheduled_scan(app)  # Передаем app в функцию планирования
     app.run_polling()
 
 if __name__ == '__main__':
