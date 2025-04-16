@@ -2,6 +2,9 @@ import logging
 import requests
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+import time
 
 # Токен и ID чата
 TELEGRAM_BOT_TOKEN = "8095985098:AAGmSZ1JZFunP2un1392Uh4gUg7LY3AjD6A"
@@ -15,6 +18,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Хранилище отслеживаемых предметов
+# Пример: {"ak 47 asiimov": {"min": 20.0, "max": 40.0}}
 items_to_search = {}
 
 # Функция нормализации названий
@@ -92,35 +96,35 @@ async def search_items(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message += f"- {item} от {price_range['min']}€ до {price_range['max']}€\n"
     await update.message.reply_text(message)
 
-# Команда /scan
+# Команда /scan (поиск через Selenium)
 async def scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     found = []
-
     try:
-        response = requests.get(API_URL)
-        data = response.json()
-        logger.info(f"Получено {len(data)} предметов от API")
+        # Настроим Selenium
+        chrome_options = Options()
+        chrome_options.add_argument("--headless")  # Без графического интерфейса
+        chrome_options.add_argument("--no-sandbox")
+        driver = webdriver.Chrome(options=chrome_options)
 
-        for entry in data:
-            if isinstance(entry, str):
-                logger.warning(f"Строка в списке: {entry}")
-                continue
+        driver.get("https://skinport.com/market")
+        time.sleep(3)  # Подождём загрузки страницы
 
-            name = entry.get("market_hash_name", "")
-            min_price = entry.get("min_price")
-            item_url = entry.get("item_page", "")
+        # Получаем все товары
+        items = driver.find_elements_by_class_name("item-card")
+        logger.info(f"Найдено предметов: {len(items)}")
 
-            if "graffiti" in name.lower():
-                continue
+        for item in items:
+            name = item.find_element_by_class_name("item-name").text.lower()
+            price = item.find_element_by_class_name("item-price").text.replace("€", "").strip()
 
-            name_set = normalize(name)
+            # Проверяем, если предмет соответствует условиям
             for item_name, price_range in items_to_search.items():
-                item_set = normalize(item_name)
-                if item_set.issubset(name_set) and min_price:
-                    min_price_f = float(min_price)
-                    if price_range["min"] <= min_price_f <= price_range["max"]:
-                        found.append(f"{name} за {min_price}€\n🔗 {item_url}")
-                        break
+                if normalize(item_name).issubset(normalize(name)):
+                    item_price = float(price)
+                    if price_range["min"] <= item_price <= price_range["max"]:
+                        found.append(f"{name} за {price}€\n🔗 {item.get_attribute('href')}")
+
+        driver.quit()
 
     except Exception as e:
         logger.error(f"Ошибка при сканировании: {e}")
@@ -135,13 +139,15 @@ async def scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Запуск бота
 def main():
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("add", add_item))
     app.add_handler(CommandHandler("remove", remove_item))
     app.add_handler(CommandHandler("search", search_items))
     app.add_handler(CommandHandler("scan", scan))
+
     logger.info("Бот запускается...")
     app.run_polling()
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
