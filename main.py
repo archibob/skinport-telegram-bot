@@ -18,11 +18,12 @@ logger = logging.getLogger(__name__)
 # Хранилище отслеживаемых предметов
 items_to_search = {}
 
-# Функция нормализации названий (с удалением модификаторов состояния)
+# Функция нормализации названий (с удалением ненужных символов)
 def normalize(text):
-    # Удаляем модификаторы состояния, например (Well-Worn), (Minimal), и т.д.
-    text = re.sub(r'\(.*?\)', '', text)
-    normalized_text = set(text.lower().replace("|", "").replace("-", "").split())
+    # Убираем все ненужные символы, такие как скобки, но оставляем пробелы и тире для разделения частей названия
+    text = re.sub(r'\(.*?\)', '', text)  # Убираем модификаторы состояния, например (Well-Worn)
+    text = text.lower().replace("-", " ").replace("|", " ").strip()  # Преобразуем в нижний регистр и заменяем тире и вертикальные черты на пробелы
+    normalized_text = set(text.split())  # Разделяем по пробелам
     logger.info(f"Нормализованный текст: {normalized_text}")
     return normalized_text
 
