@@ -14,7 +14,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Хранилище отслеживаемых предметов с ценой
+# Хранилище отслеживаемых предметов
+# Пример: {"ak 47 asiimov": {"min": 20.0, "max": 40.0}}
 items_to_search = {}
 
 # Функция нормализации названий
@@ -37,11 +38,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = (
         "Привет! Я бот для поиска предметов на Skinport.\n"
         "Команды:\n"
-        "/add <название> <макс_цена> — добавить предмет для отслеживания\n"
+        "/add <название> <макс_цена> — добавить предмет\n"
+        "/add <название> <мин_цена> <макс_цена> — с минимальной ценой\n"
         "/remove <название> — удалить предмет\n"
-        "/search — показать добавленные предметы для отслеживания\n"
-        "/scan — ручной поиск предметов по названию\n"
-        "/track — отслеживание предметов по цене"
+        "/search — список предметов\n"
+        "/scan — ручной поиск по сайту"
     )
     await update.message.reply_text(message)
 
@@ -60,14 +61,13 @@ async def add_item(update: Update, context: ContextTypes.DEFAULT_TYPE):
             *name_parts, max_price_str = context.args
             min_price = 0
             max_price = float(max_price_str.replace(",", "."))
-
     except ValueError:
         await update.message.reply_text("Неверный формат цены.")
         return
 
     item_name = " ".join(name_parts).lower().strip()
     items_to_search[item_name] = {"min": min_price, "max": max_price}
-    await update.message.reply_text(f"Добавлен предмет: {item_name} от {min_price}€ до {max_price}€")
+    await update.message.reply_text(f"Добавлен: {item_name} от {min_price}€ до {max_price}€")
 
 # Команда /remove
 async def remove_item(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -78,7 +78,7 @@ async def remove_item(update: Update, context: ContextTypes.DEFAULT_TYPE):
     item_name = " ".join(context.args).lower().strip()
     if item_name in items_to_search:
         del items_to_search[item_name]
-        await update.message.reply_text(f"Удалён предмет: {item_name}")
+        await update.message.reply_text(f"Удалён: {item_name}")
     else:
         await update.message.reply_text(f"{item_name} не найден в списке.")
 
@@ -107,6 +107,9 @@ async def scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
         response = requests.get(url)
         data = response.json()
 
+        # Для отладки добавим вывод полученных данных
+        logger.info(f"Ответ от API: {data}")
+
         for entry in data:
             name = entry.get("market_hash_name", "")
             min_price = entry.get("min_price")
@@ -119,6 +122,9 @@ async def scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
             name_set = normalize(name)
             search_set = normalize(search_query)
 
+            # Печать для отладки, что сравнивается
+            logger.info(f"Ищем: {search_query}, нашли: {name}, совпадение: {name_set.issubset(search_set)}")
+
             if search_set.issubset(name_set) and min_price:
                 min_price_f = float(min_price)
                 found.append(f"{name} за {min_price}€\n🔗 {item_url}")
@@ -126,45 +132,6 @@ async def scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Ошибка при сканировании: {e}")
         await update.message.reply_text("Произошла ошибка при сканировании.")
-        return
-
-    if found:
-        await update.message.reply_text("Найдены предметы:\n\n" + "\n\n".join(found))
-    else:
-        await update.message.reply_text("Ничего не найдено.")
-
-# Команда /track (отслеживание предметов по цене)
-async def track(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    found = []
-    url = API_URL
-
-    try:
-        response = requests.get(url)
-        data = response.json()
-
-        for entry in data:
-            name = entry.get("market_hash_name", "")
-            min_price = entry.get("min_price")
-            item_url = entry.get("item_page", "")
-
-            # Пропускаем граффити и подобное
-            if "graffiti" in name.lower():
-                continue
-
-            for item_name, price_range in items_to_search.items():
-                item_set = normalize(item_name)
-                name_set = normalize(name)
-
-                if item_set.issubset(name_set) and min_price:
-                    min_price_f = float(min_price)
-                    if price_range["min"] <= min_price_f <= price_range["max"]:
-                        found.append(f"{name} за {min_price}€\n🔗 {item_url}")
-                        await send_telegram_message(f"Найден предмет по цене {min_price}€\n🔗 {item_url}")
-                        break
-
-    except Exception as e:
-        logger.error(f"Ошибка при сканировании: {e}")
-        await update.message.reply_text("Произошла ошибка при отслеживании.")
         return
 
     if found:
@@ -181,7 +148,6 @@ def main():
     app.add_handler(CommandHandler("remove", remove_item))
     app.add_handler(CommandHandler("search", search_items))
     app.add_handler(CommandHandler("scan", scan))
-    app.add_handler(CommandHandler("track", track))
 
     logger.info("Бот запускается...")
     app.run_polling()
