@@ -109,6 +109,35 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         del waiting_for_input[user_id]
 
+    elif waiting_for_input.get(user_id) == "favorite":
+        parts = update.message.text.strip().split()
+        if not parts:
+            await update.message.reply_text("Название не распознано.", reply_markup=main_keyboard())
+            return
+
+        prices = []
+        while parts and re.match(r"^\d+([.,]\d+)?$", parts[-1]):
+            prices.insert(0, float(parts.pop().replace(",", ".")))
+
+        item_name = " ".join(parts).lower()
+        if not item_name:
+            await update.message.reply_text("Название не распознано.", reply_markup=main_keyboard())
+            return
+
+        if len(prices) == 2:
+            min_price, max_price = prices
+        elif len(prices) == 1:
+            min_price, max_price = 0, prices[0]
+        else:
+            min_price, max_price = 0, 999
+
+        favorite_items[item_name] = {"min": min_price, "max": max_price}
+        await update.message.reply_text(
+            f"✅ Добавлен в избранное: {item_name} от {min_price}€ до {max_price}€",
+            reply_markup=main_keyboard()
+        )
+        del waiting_for_input[user_id]
+
 async def scan(update_or_query, context: ContextTypes.DEFAULT_TYPE):
     found = []
     url = API_URL
@@ -153,13 +182,6 @@ async def scan(update_or_query, context: ContextTypes.DEFAULT_TYPE):
         await update_or_query.edit_message_text("Найдены предметы:\n\n" + "\n\n".join(found), reply_markup=main_keyboard())
     else:
         await update_or_query.edit_message_text("Ничего не найдено.", reply_markup=main_keyboard())
-
-async def add_to_favorites(update: Update, context: ContextTypes.DEFAULT_TYPE, item_name, min_price, max_price):
-    favorite_items[item_name] = {"min": min_price, "max": max_price}
-    await update.message.reply_text(
-        f"✅ Добавлен в избранное: {item_name} от {min_price}€ до {max_price}€",
-        reply_markup=main_keyboard()
-    )
 
 def main():
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
