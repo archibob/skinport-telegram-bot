@@ -42,26 +42,26 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if query.data == "add":
         waiting_for_input[user_id] = "add"
-        await query.message.reply_text("Введите название предмета и (необязательно) цену:", reply_markup=main_keyboard())
+        await query.edit_message_text("Введите название предмета и (необязательно) цену:", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Назад", callback_data="back")]]))
     elif query.data == "list":
         if not items_to_search:
-            await query.message.reply_text("Список пуст.", reply_markup=main_keyboard())
+            await query.edit_message_text("Список пуст.", reply_markup=main_keyboard())
             return
         keyboard = [
             [InlineKeyboardButton(f"❌ {name}", callback_data=f"delete|{name}")]
             for name in items_to_search.keys()
         ]
         keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="back")])
-        await query.message.reply_text("Ваши предметы:", reply_markup=InlineKeyboardMarkup(keyboard))
+        await query.edit_message_text("Ваши предметы:", reply_markup=InlineKeyboardMarkup(keyboard))
     elif query.data.startswith("delete|"):
         name = query.data.split("|", 1)[1]
         if name in items_to_search:
             del items_to_search[name]
-            await query.message.reply_text(f"Удалено: {name}", reply_markup=main_keyboard())
+            await query.edit_message_text(f"Удалено: {name}", reply_markup=main_keyboard())
     elif query.data == "scan":
         await scan(query, context)
     elif query.data == "back":
-        await query.message.reply_text("Выберите действие:", reply_markup=main_keyboard())
+        await query.edit_message_text("Выберите действие:", reply_markup=main_keyboard())
 
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
@@ -122,13 +122,13 @@ async def scan(update_or_query, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         logger.error(f"Ошибка при сканировании: {e}")
-        await update_or_query.message.reply_text("Произошла ошибка при сканировании.", reply_markup=main_keyboard())
+        await update_or_query.edit_message_text("Произошла ошибка при сканировании.", reply_markup=main_keyboard())
         return
 
     if found:
-        await update_or_query.message.reply_text("Найдены предметы:\n\n" + "\n\n".join(found), reply_markup=main_keyboard())
+        await update_or_query.edit_message_text("Найдены предметы:\n\n" + "\n\n".join(found), reply_markup=main_keyboard())
     else:
-        await update_or_query.message.reply_text("Ничего не найдено.", reply_markup=main_keyboard())
+        await update_or_query.edit_message_text("Ничего не найдено.", reply_markup=main_keyboard())
 
 def main():
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
