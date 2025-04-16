@@ -6,6 +6,7 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.common.by import By
 
 # Токен и ID чата
 TELEGRAM_BOT_TOKEN = "8095985098:AAGmSZ1JZFunP2un1392Uh4gUg7LY3AjD6A"
@@ -117,14 +118,13 @@ async def scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
         driver.implicitly_wait(10)
 
         # Парсим HTML-страницу с предметами
-        # Допустим, парсим через driver.find_elements_by_xpath() и проверяем доступные предметы
-        items = driver.find_elements_by_xpath("//div[@class='item-container']")
+        items = driver.find_elements(By.XPATH, "//div[@class='item-container']")
         
         if items:
             for item in items:
-                name = item.find_element_by_xpath(".//div[@class='item-name']").text
-                min_price = float(item.find_element_by_xpath(".//span[@class='price']").text.replace('€', '').strip())
-                item_url = item.find_element_by_xpath(".//a").get_attribute("href")
+                name = item.find_element(By.XPATH, ".//div[@class='item-name']").text
+                min_price = float(item.find_element(By.XPATH, ".//span[@class='price']").text.replace('€', '').strip())
+                item_url = item.find_element(By.XPATH, ".//a").get_attribute("href")
 
                 # Пропускаем граффити и подобное
                 if "graffiti" in name.lower():
