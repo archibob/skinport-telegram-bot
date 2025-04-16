@@ -5,8 +5,8 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 import asyncio
 
 # --- Конфигурация ---
-TELEGRAM_BOT_TOKEN = "ВАШ_ТОКЕН"
-TELEGRAM_CHAT_ID = "ВАШ_CHAT_ID"
+TELEGRAM_BOT_TOKEN = "8095985098:AAGmSZ1JZFunP2un1392Uh4gUg7LY3AjD6A"
+TELEGRAM_CHAT_ID = "388895285"
 API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
 # --- Логирование ---
