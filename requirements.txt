@@ -1,11 +1,9 @@
-
 brotli
 beautifulsoup4
 undetected-chromedriver
 nest_asyncio
 python-telegram-bot==20.0
 python-telegram-bot[webhooks]
-# Requirements for ChromeDriver on headless systems
 chromium
 libx11
 libxcomposite
