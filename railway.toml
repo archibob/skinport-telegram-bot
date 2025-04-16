@@ -1,32 +1,5 @@
 [build]
-  command = """
-    apt-get update && apt-get install -y \
-    wget \
-    curl \
-    unzip \
-    xz-utils \
-    libx11-xcb1 \
-    libxcomposite1 \
-    libxrandr2 \
-    libgdk-pixbuf2.0-0 \
-    libnss3 \
-    libatk-bridge2.0-0 \
-    libgtk-3-0 \
-    libnspr4 \
-    libappindicator3-1 \
-    libasound2 \
-    fonts-liberation \
-    libxss1 \
-    libnss3 \
-    libgdk-pixbuf2.0-0 \
-    libpangocairo-1.0-0 \
-    libx11-6 \
-    libappindicator1 \
-    libnss3-1d \
-    libxtst6 \
-    chromium && \
-    pip install -r requirements.txt
-  """
+  command = "pip install -r requirements.txt"
 
 [dependencies]
   chromium = "135.0.7049.95"
@@ -40,9 +13,4 @@
   libatk-bridge2.0 = "2.40.2"
   libgtk-3.0 = "3.24.24"
   libnspr4 = "4.30.0"
-  libnss3-1d = "3.60"
-  libappindicator3-1 = "12.10.0"
-  xorg-server-xvfb = "1.20.4"
-  libnss3-1d = "3.60"
-  libnss3 = "3.60"
   xorg-server-xvfb = "1.20.4"
