@@ -48,7 +48,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text("Список пуст.", reply_markup=main_keyboard())
             return
         keyboard = [
-            [InlineKeyboardButton(f"❌ {name}", callback_data=f"delete|{name}")]
+            [InlineKeyboardButton(f"❌ {name}", callback_data=f"delete|{name}")] 
             for name in items_to_search.keys()
         ]
         keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="back")])
@@ -102,7 +102,13 @@ async def scan(update_or_query, context: ContextTypes.DEFAULT_TYPE):
         response = requests.get(url)
         data = response.json()
 
-        for entry in data:
+        # Проверка на корректность структуры данных
+        if isinstance(data, dict) and "items" in data:
+            items = data["items"]
+        else:
+            raise ValueError("Некорректный формат данных от API")
+
+        for entry in items:
             name = entry.get("market_hash_name", "")
             min_price = entry.get("min_price")
             item_url = entry.get("item_page", "")
