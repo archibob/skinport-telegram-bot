@@ -17,7 +17,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 items_to_search = {}
-favorite_items = {}
 waiting_for_input = {}
 
 def normalize(text):
@@ -103,13 +102,7 @@ async def scan(update_or_query, context: ContextTypes.DEFAULT_TYPE):
         response = requests.get(url)
         data = response.json()
 
-        # Проверим, что ответ имеет ожидаемую структуру
-        if isinstance(data, dict) and "items" in data:
-            items = data["items"]
-        else:
-            raise ValueError("Некорректный формат данных от API")
-
-        for entry in items:
+        for entry in data:
             name = entry.get("market_hash_name", "")
             min_price = entry.get("min_price")
             item_url = entry.get("item_page", "")
@@ -119,22 +112,12 @@ async def scan(update_or_query, context: ContextTypes.DEFAULT_TYPE):
 
             name_set = normalize(name)
 
-            # Проверка на отслеживаемые предметы
             for item_name, price_range in items_to_search.items():
                 item_set = normalize(item_name)
                 if item_set.issubset(name_set) and min_price:
                     min_price_f = float(min_price)
                     if price_range["min"] <= min_price_f <= price_range["max"]:
                         found.append(f"{name} за {min_price}€\n🔗 {item_url}")
-                        break
-
-            # Проверка на избранные предметы
-            for item_name, price_range in favorite_items.items():
-                item_set = normalize(item_name)
-                if item_set.issubset(name_set) and min_price:
-                    min_price_f = float(min_price)
-                    if price_range["min"] <= min_price_f <= price_range["max"]:
-                        found.append(f"{name} (Избранное) за {min_price}€\n🔗 {item_url}")
                         break
 
     except Exception as e:
