@@ -16,32 +16,26 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Два списка для отслеживания: обычный и избранное
 items_to_search = {}
 favorite_items = {}
 waiting_for_input = {}
 
-# Функция для нормализации текста
 def normalize(text):
     text = re.sub(r'\(.*?\)', '', text)
     text = text.lower().replace("-", " ").replace("|", " ").strip()
     return set(text.split())
 
-# Основное меню
 def main_keyboard():
     keyboard = [
         [InlineKeyboardButton("➕ Добавить", callback_data="add")],
         [InlineKeyboardButton("📋 Список", callback_data="list")],
-        [InlineKeyboardButton("⭐ Избранное", callback_data="favorites")],
         [InlineKeyboardButton("🔍 Сканировать", callback_data="scan")]
     ]
     return InlineKeyboardMarkup(keyboard)
 
-# Начало работы с ботом
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Выберите действие:", reply_markup=main_keyboard())
 
-# Обработчик кнопок
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -60,32 +54,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
         keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="back")])
         await query.edit_message_text("Ваши предметы:", reply_markup=InlineKeyboardMarkup(keyboard))
-    elif query.data == "favorites":
-        if not favorite_items:
-            await query.edit_message_text("Избранное пусто.", reply_markup=main_keyboard())
-            return
-        keyboard = [
-            [InlineKeyboardButton(f"❌ {name}", callback_data=f"remove_favorite|{name}")]
-            for name in favorite_items.keys()
-        ]
-        keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="back")])
-        await query.edit_message_text("Ваши избранные предметы:", reply_markup=InlineKeyboardMarkup(keyboard))
     elif query.data.startswith("delete|"):
         name = query.data.split("|", 1)[1]
         if name in items_to_search:
             del items_to_search[name]
             await query.edit_message_text(f"Удалено: {name}", reply_markup=main_keyboard())
-    elif query.data.startswith("remove_favorite|"):
-        name = query.data.split("|", 1)[1]
-        if name in favorite_items:
-            del favorite_items[name]
-            await query.edit_message_text(f"Удалено из избранного: {name}", reply_markup=main_keyboard())
     elif query.data == "scan":
         await scan(query, context)
     elif query.data == "back":
         await query.edit_message_text("Выберите действие:", reply_markup=main_keyboard())
 
-# Обработчик сообщений (для добавления предмета)
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     if waiting_for_input.get(user_id) == "add":
@@ -117,7 +95,6 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         del waiting_for_input[user_id]
 
-# Функция для сканирования предметов
 async def scan(update_or_query, context: ContextTypes.DEFAULT_TYPE):
     found = []
     url = API_URL
@@ -126,7 +103,13 @@ async def scan(update_or_query, context: ContextTypes.DEFAULT_TYPE):
         response = requests.get(url)
         data = response.json()
 
-        for entry in data["items"]:
+        # Проверим, что ответ имеет ожидаемую структуру
+        if isinstance(data, dict) and "items" in data:
+            items = data["items"]
+        else:
+            raise ValueError("Некорректный формат данных от API")
+
+        for entry in items:
             name = entry.get("market_hash_name", "")
             min_price = entry.get("min_price")
             item_url = entry.get("item_page", "")
@@ -136,6 +119,7 @@ async def scan(update_or_query, context: ContextTypes.DEFAULT_TYPE):
 
             name_set = normalize(name)
 
+            # Проверка на отслеживаемые предметы
             for item_name, price_range in items_to_search.items():
                 item_set = normalize(item_name)
                 if item_set.issubset(name_set) and min_price:
@@ -144,6 +128,7 @@ async def scan(update_or_query, context: ContextTypes.DEFAULT_TYPE):
                         found.append(f"{name} за {min_price}€\n🔗 {item_url}")
                         break
 
+            # Проверка на избранные предметы
             for item_name, price_range in favorite_items.items():
                 item_set = normalize(item_name)
                 if item_set.issubset(name_set) and min_price:
@@ -162,7 +147,6 @@ async def scan(update_or_query, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update_or_query.edit_message_text("Ничего не найдено.", reply_markup=main_keyboard())
 
-# Основная функция для запуска бота
 def main():
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
