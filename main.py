@@ -1,8 +1,8 @@
 import logging
 import requests
 import re
-from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
 # Токен и ID чата
 TELEGRAM_BOT_TOKEN = "8095985098:AAGmSZ1JZFunP2un1392Uh4gUg7LY3AjD6A"
@@ -17,13 +17,13 @@ logger = logging.getLogger(__name__)
 
 # Хранилище отслеживаемых предметов
 items_to_search = {}
+item_prices = {}
 
 # Функция нормализации названий (с удалением ненужных символов)
 def normalize(text):
-    # Убираем все ненужные символы, такие как скобки, но оставляем пробелы и тире для разделения частей названия
     text = re.sub(r'\(.*?\)', '', text)  # Убираем модификаторы состояния, например (Well-Worn)
-    text = text.lower().replace("-", " ").replace("|", " ").strip()  # Преобразуем в нижний регистр и заменяем тире и вертикальные черты на пробелы
-    normalized_text = set(text.split())  # Разделяем по пробелам
+    text = text.lower().replace("-", " ").replace("|", " ").strip()
+    normalized_text = set(text.split())
     logger.info(f"Нормализованный текст: {normalized_text}")
     return normalized_text
 
@@ -38,18 +38,62 @@ async def send_telegram_message(message: str):
     except Exception as e:
         logger.error(f"Ошибка Telegram: {e}")
 
+# Функция для проверки и отправки уведомлений при изменении цен
+async def check_price_changes(item_name, current_price):
+    if item_name in item_prices:
+        previous_price = item_prices[item_name]
+        if current_price != previous_price:
+            message = f"Цена для {item_name} изменилась с {previous_price}€ на {current_price}€."
+            await send_telegram_message(message)
+            item_prices[item_name] = current_price  # Обновляем цену
+    else:
+        item_prices[item_name] = current_price  # Добавляем в хранилище, если это первый раз
+
 # Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = (
         "Привет! Я бот для поиска предметов на Skinport.\n"
         "Команды:\n"
         "/add <название> <макс_цена> — добавить предмет\n"
-        "/add <название> <мин_цена> <макс_цена> — с минимальной ценой\n"
         "/remove <название> — удалить предмет\n"
         "/search — список предметов\n"
-        "/scan — ручной поиск по сайту"
+        "/scan — ручной поиск по сайту\n"
+        "/filter — фильтрация по цене"
     )
     await update.message.reply_text(message)
+
+# Команда /filter (интерактивные кнопки)
+async def price_filter(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keyboard = [
+        [InlineKeyboardButton("5€ - 10€", callback_data='price_5_10')],
+        [InlineKeyboardButton("10€ - 20€", callback_data='price_10_20')],
+        [InlineKeyboardButton("20€ - 50€", callback_data='price_20_50')],
+        [InlineKeyboardButton("50€+", callback_data='price_50_up')],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Выберите ценовой диапазон:", reply_markup=reply_markup)
+
+# Обработка нажатия кнопок
+async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()  # Подтверждение нажатия
+    price_range = query.data
+
+    if price_range == 'price_5_10':
+        await query.edit_message_text("Фильтрация предметов от 5€ до 10€.")
+        # Здесь будет фильтрация предметов по цене 5-10€
+
+    elif price_range == 'price_10_20':
+        await query.edit_message_text("Фильтрация предметов от 10€ до 20€.")
+        # Здесь будет фильтрация предметов по цене 10-20€
+
+    elif price_range == 'price_20_50':
+        await query.edit_message_text("Фильтрация предметов от 20€ до 50€.")
+        # Здесь будет фильтрация предметов по цене 20-50€
+
+    elif price_range == 'price_50_up':
+        await query.edit_message_text("Фильтрация предметов от 50€ и выше.")
+        # Здесь будет фильтрация предметов по цене от 50€
 
 # Команда /add
 async def add_item(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -113,11 +157,14 @@ async def scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
             min_price = entry.get("min_price")
             item_url = entry.get("item_page", "")
 
-            # Пропускаем граффити и подобное
+            # Пропускаем ненужные предметы
             if "graffiti" in name.lower():
                 continue
 
             logger.info(f"Проверка предмета: {name} с ценой {min_price}€")
+
+            # Проверка на изменения цен
+            await check_price_changes(name, float(min_price))
 
             name_set = normalize(name)
 
@@ -148,6 +195,8 @@ def main():
     app.add_handler(CommandHandler("remove", remove_item))
     app.add_handler(CommandHandler("search", search_items))
     app.add_handler(CommandHandler("scan", scan))
+    app.add_handler(CommandHandler("filter", price_filter))
+    app.add_handler(CallbackQueryHandler(button_callback))
 
     logger.info("Бот запускается...")
     app.run_polling()
