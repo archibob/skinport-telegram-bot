@@ -93,7 +93,7 @@ async def search_items(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message += f"- {item} от {price_range['min']}€ до {price_range['max']}€\n"
     await update.message.reply_text(message)
 
-# Команда /scan с поддержкой пагинации
+# Команда /scan с улучшенной диагностикой ошибок
 async def scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     found = []
     url = API_URL
@@ -103,8 +103,19 @@ async def scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             # Добавляем параметр page в запрос
             response = requests.get(f"{url}&page={page}")
+            if response.status_code != 200:
+                logger.error(f"Ошибка при получении данных от API: {response.status_code}")
+                await update.message.reply_text(f"Ошибка при получении данных от API. Код ошибки: {response.status_code}")
+                return
+
+            # Логируем полностью ответ от API для диагностики
+            logger.info(f"Ответ от API (страница {page}): {response.text}")
+
+            # Пытаемся преобразовать текст в JSON
             data = response.json()
-            logger.info(f"Получено {len(data)} предметов от API на странице {page}")
+
+            # Логируем полученные данные для диагностики
+            logger.info(f"Ответ от API (страница {page}): {data}")
 
             # Если данных на текущей странице нет, то выходим из цикла
             if not data:
@@ -133,7 +144,7 @@ async def scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         except Exception as e:
             logger.error(f"Ошибка при сканировании: {e}")
-            await update.message.reply_text("Произошла ошибка при сканировании.")
+            await update.message.reply_text(f"Произошла ошибка при сканировании: {e}")
             return
 
     if found:
