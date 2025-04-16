@@ -22,6 +22,15 @@ items_to_search = {}
 def normalize_name(name: str) -> str:
     return re.sub(r"[^\w\s]", "", name.lower()).strip()
 
+# Функция для поиска точных совпадений с учётом слов
+def is_match(item_name: str, search_terms: str) -> bool:
+    # Приводим строку поиска и название предмета к нижнему регистру и нормализуем
+    normalized_item = normalize_name(item_name)
+    normalized_search = normalize_name(search_terms)
+    
+    # Проверяем, содержится ли нормализованная строка поиска в нормализованном названии предмета
+    return normalized_search in normalized_item
+
 # Отправка сообщения в Telegram
 async def send_telegram_message(message: str):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
@@ -104,14 +113,9 @@ async def scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             logger.info(f"Проверка предмета: {name} - цена: {min_price} - ссылка: {item_url}")
 
-            # Нормализуем название предмета
-            normalized_name = normalize_name(name)
-
-            # Ищем точные совпадения для каждого отслеживаемого предмета
+            # Ищем точные совпадения с названиями предметов
             for item_name, max_price in items_to_search.items():
-                normalized_item_name = normalize_name(item_name)
-
-                if normalized_item_name in normalized_name and min_price and float(min_price) <= max_price:
+                if is_match(name, item_name) and min_price and float(min_price) <= max_price:
                     found.append(f"{name} за {min_price}€\n🔗 {item_url}")
 
     except Exception as e:
