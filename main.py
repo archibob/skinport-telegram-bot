@@ -17,6 +17,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 items_to_search = {}
+favorite_items = {}
 waiting_for_input = {}
 
 def normalize(text):
@@ -28,7 +29,8 @@ def main_keyboard():
     keyboard = [
         [InlineKeyboardButton("➕ Добавить", callback_data="add")],
         [InlineKeyboardButton("📋 Список", callback_data="list")],
-        [InlineKeyboardButton("🔍 Сканировать", callback_data="scan")]
+        [InlineKeyboardButton("🔍 Сканировать", callback_data="scan")],
+        [InlineKeyboardButton("⭐ Избранное", callback_data="favorites")]
     ]
     return InlineKeyboardMarkup(keyboard)
 
@@ -48,8 +50,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text("Список пуст.", reply_markup=main_keyboard())
             return
         keyboard = [
-            [InlineKeyboardButton(f"❌ {name}", callback_data=f"delete|{name}")] 
-            for name in items_to_search.keys()
+            [InlineKeyboardButton(f"❌ {name}", callback_data=f"delete|{name}") for name in items_to_search.keys()]
         ]
         keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="back")])
         await query.edit_message_text("Ваши предметы:", reply_markup=InlineKeyboardMarkup(keyboard))
@@ -60,6 +61,20 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text(f"Удалено: {name}", reply_markup=main_keyboard())
     elif query.data == "scan":
         await scan(query, context)
+    elif query.data == "favorites":
+        if not favorite_items:
+            await query.edit_message_text("Избранное пусто.", reply_markup=main_keyboard())
+            return
+        keyboard = [
+            [InlineKeyboardButton(f"❌ {name}", callback_data=f"remove_favorite|{name}") for name in favorite_items.keys()]
+        ]
+        keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="back")])
+        await query.edit_message_text("Ваши избранные предметы:", reply_markup=InlineKeyboardMarkup(keyboard))
+    elif query.data.startswith("remove_favorite|"):
+        name = query.data.split("|", 1)[1]
+        if name in favorite_items:
+            del favorite_items[name]
+            await query.edit_message_text(f"Удалено из избранного: {name}", reply_markup=main_keyboard())
     elif query.data == "back":
         await query.edit_message_text("Выберите действие:", reply_markup=main_keyboard())
 
@@ -102,13 +117,7 @@ async def scan(update_or_query, context: ContextTypes.DEFAULT_TYPE):
         response = requests.get(url)
         data = response.json()
 
-        # Проверка на корректность структуры данных
-        if isinstance(data, dict) and "items" in data:
-            items = data["items"]
-        else:
-            raise ValueError("Некорректный формат данных от API")
-
-        for entry in items:
+        for entry in data:
             name = entry.get("market_hash_name", "")
             min_price = entry.get("min_price")
             item_url = entry.get("item_page", "")
@@ -126,6 +135,15 @@ async def scan(update_or_query, context: ContextTypes.DEFAULT_TYPE):
                         found.append(f"{name} за {min_price}€\n🔗 {item_url}")
                         break
 
+            # Check for favorite items
+            for item_name, price_range in favorite_items.items():
+                item_set = normalize(item_name)
+                if item_set.issubset(name_set) and min_price:
+                    min_price_f = float(min_price)
+                    if price_range["min"] <= min_price_f <= price_range["max"]:
+                        found.append(f"⭐ Избранное: {name} за {min_price}€\n🔗 {item_url}")
+                        break
+
     except Exception as e:
         logger.error(f"Ошибка при сканировании: {e}")
         await update_or_query.edit_message_text("Произошла ошибка при сканировании.", reply_markup=main_keyboard())
@@ -135,6 +153,13 @@ async def scan(update_or_query, context: ContextTypes.DEFAULT_TYPE):
         await update_or_query.edit_message_text("Найдены предметы:\n\n" + "\n\n".join(found), reply_markup=main_keyboard())
     else:
         await update_or_query.edit_message_text("Ничего не найдено.", reply_markup=main_keyboard())
+
+async def add_to_favorites(update: Update, context: ContextTypes.DEFAULT_TYPE, item_name, min_price, max_price):
+    favorite_items[item_name] = {"min": min_price, "max": max_price}
+    await update.message.reply_text(
+        f"✅ Добавлен в избранное: {item_name} от {min_price}€ до {max_price}€",
+        reply_markup=main_keyboard()
+    )
 
 def main():
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
