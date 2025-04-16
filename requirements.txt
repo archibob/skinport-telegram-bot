@@ -1,9 +1,7 @@
-requests
+
 brotli
 beautifulsoup4
-selenium
 undetected-chromedriver
-webdriver-manager
 nest_asyncio
 python-telegram-bot==20.0
 python-telegram-bot[webhooks]
@@ -19,3 +17,6 @@ libgdk_pixbuf2.0
 libatk-bridge2.0
 libgtk-3.0
 libnspr4
+selenium==4.0.0
+requests==2.26.0
+webdriver-manager==3.8.0
