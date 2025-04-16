@@ -7,3 +7,15 @@ webdriver-manager
 nest_asyncio
 python-telegram-bot==20.0
 python-telegram-bot[webhooks]
+# Requirements for ChromeDriver on headless systems
+chromium
+libx11
+libxcomposite
+libxdamage
+libxi
+libxtst
+libnss3
+libgdk_pixbuf2.0
+libatk-bridge2.0
+libgtk-3.0
+libnspr4
