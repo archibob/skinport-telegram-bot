@@ -109,8 +109,7 @@ async def scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Ничего не найдено.")
 
 # --- Авто-проверка отслеживаемых предметов ---
-async def auto_check():
-    await asyncio.sleep(5)
+async def auto_check(context: ContextTypes.DEFAULT_TYPE):
     while True:
         try:
             response = requests.get(API_URL)
@@ -143,7 +142,9 @@ def main():
     app.add_handler(CommandHandler("scan", scan))
 
     logger.info("Бот запущен.")
-    asyncio.create_task(auto_check())  # запуск авто-проверки
+
+    # Добавляем авто-проверку через run_async
+    app.run_async(auto_check)  # запускаем авто-проверку в отдельном потоке
 
     app.run_polling()
 
