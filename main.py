@@ -46,10 +46,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if query.data == "add":
         waiting_for_input[user_id] = "add"
-        await query.edit_message_text("Введите название предмета и (необязательно) цену и качество (например, Battle-Scarred):", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Назад", callback_data="back")]]))
+        await query.edit_message_text("Введите название предмета и (необязательно) цену:", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Назад", callback_data="back")]]))
     elif query.data == "add_favorite":  
         waiting_for_input[user_id] = "favorite"
-        await query.edit_message_text("Введите название предмета и (необязательно) цену и качество для добавления в избранное:", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Назад", callback_data="back")]]))
+        await query.edit_message_text("Введите название предмета и (необязательно) цену для добавления в избранное:", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Назад", callback_data="back")]]))
     elif query.data == "list":
         if not items_to_search:
             await query.edit_message_text("Список пуст.", reply_markup=main_keyboard())
@@ -93,14 +93,8 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         prices = []
-        quality = None
-
-        # Разделяем название и цену, и извлекаем качество, если оно есть
         while parts and re.match(r"^\d+([.,]\d+)?$", parts[-1]):
             prices.insert(0, float(parts.pop().replace(",", ".")))
-
-        if parts and re.match(r"^[A-Za-z\-]+$", parts[-1]):
-            quality = parts.pop()  # Последнее слово - это качество
 
         item_name = " ".join(parts).lower()
         if not item_name:
@@ -114,9 +108,9 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             min_price, max_price = 0, 999
 
-        items_to_search[item_name] = {"min": min_price, "max": max_price, "quality": quality}
+        items_to_search[item_name] = {"min": min_price, "max": max_price}
         await update.message.reply_text(
-            f"✅ Добавлен: {item_name} от {min_price}€ до {max_price}€" + (f" с качеством {quality}" if quality else ""),
+            f"✅ Добавлен: {item_name} от {min_price}€ до {max_price}€",
             reply_markup=main_keyboard()
         )
         del waiting_for_input[user_id]
@@ -128,14 +122,8 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         prices = []
-        quality = None
-
-        # Разделяем название и цену, и извлекаем качество, если оно есть
         while parts and re.match(r"^\d+([.,]\d+)?$", parts[-1]):
             prices.insert(0, float(parts.pop().replace(",", ".")))
-
-        if parts and re.match(r"^[A-Za-z\-]+$", parts[-1]):
-            quality = parts.pop()  # Последнее слово - это качество
 
         item_name = " ".join(parts).lower()
         if not item_name:
@@ -152,9 +140,9 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if user_id not in favorite_items:
             favorite_items[user_id] = {}
 
-        favorite_items[user_id][item_name] = {"min": min_price, "max": max_price, "quality": quality}
+        favorite_items[user_id][item_name] = {"min": min_price, "max": max_price}
         await update.message.reply_text(
-            f"✅ Добавлен в избранное: {item_name} от {min_price}€ до {max_price}€" + (f" с качеством {quality}" if quality else ""),
+            f"✅ Добавлен в избранное: {item_name} от {min_price}€ до {max_price}€",
             reply_markup=main_keyboard()
         )
         del waiting_for_input[user_id]
@@ -172,7 +160,6 @@ async def scan(update_or_query, context: ContextTypes.DEFAULT_TYPE):
             name = entry.get("market_hash_name", "")
             min_price = entry.get("min_price")
             item_url = entry.get("item_page", "")
-            quality = entry.get("quality", "")
 
             if "graffiti" in name.lower():
                 continue
@@ -185,9 +172,7 @@ async def scan(update_or_query, context: ContextTypes.DEFAULT_TYPE):
                 if item_set.issubset(name_set) and min_price:
                     min_price_f = float(min_price)
                     if price_range["min"] <= min_price_f <= price_range["max"]:
-                        if price_range.get("quality") and price_range["quality"] != quality:
-                            continue
-                        found.append(f"{name} за {min_price}€ (Качество: {quality})\n🔗 {item_url}")
+                        found.append(f"{name} за {min_price}€\n🔗 {item_url}")
                         break
 
             # Проверяем избранные предметы только для текущего пользователя
@@ -197,9 +182,7 @@ async def scan(update_or_query, context: ContextTypes.DEFAULT_TYPE):
                     if item_set.issubset(name_set) and min_price:
                         min_price_f = float(min_price)
                         if price_range["min"] <= min_price_f <= price_range["max"]:
-                            if price_range.get("quality") and price_range["quality"] != quality:
-                                continue
-                            found.append(f"⭐ Избранное: {name} за {min_price}€ (Качество: {quality})\n🔗 {item_url}")
+                            found.append(f"⭐ Избранное: {name} за {min_price}€\n🔗 {item_url}")
                             break
 
     except Exception as e:
@@ -212,16 +195,70 @@ async def scan(update_or_query, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update_or_query.edit_message_text("Ничего не найдено.", reply_markup=main_keyboard())
 
-async def main():
-    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+# Функция для регулярного сканирования по расписанию
+async def scheduled_scan(context: ContextTypes.DEFAULT_TYPE):
+    found = []
+    url = API_URL
 
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CallbackQueryHandler(button_handler))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
+    try:
+        response = requests.get(url)
+        data = response.json()
 
-    # Запуск бота
-    await application.run_polling()
+        for entry in data:
+            name = entry.get("market_hash_name", "")
+            min_price = entry.get("min_price")
+            item_url = entry.get("item_page", "")
 
-if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+            if "graffiti" in name.lower():
+                continue
+
+            name_set = normalize(name)
+
+            # Проверяем обычные предметы
+            for item_name, price_range in items_to_search.items():
+                item_set = normalize(item_name)
+                if item_set.issubset(name_set) and min_price:
+                    min_price_f = float(min_price)
+                    if price_range["min"] <= min_price_f <= price_range["max"]:
+                        found.append(f"{name} за {min_price}€\n🔗 {item_url}")
+                        break
+
+            # Проверяем избранные предметы только для каждого пользователя
+            for user_id, user_favorites in favorite_items.items():
+                for item_name, price_range in user_favorites.items():
+                    item_set = normalize(item_name)
+                    if item_set.issubset(name_set) and min_price:
+                        min_price_f = float(min_price)
+                        if price_range["min"] <= min_price_f <= price_range["max"]:
+                            found.append(f"⭐ Избранное: {name} за {min_price}€\n🔗 {item_url}")
+                            break
+
+    except Exception as e:
+        logger.error(f"Ошибка при сканировании: {e}")
+        context.bot.send_message(TELEGRAM_CHAT_ID, f"Ошибка при регулярном сканировании: {e}")
+        return
+
+    if found:
+        message = "\n\n".join(found)
+        context.bot.send_message(TELEGRAM_CHAT_ID, f"Новые предметы:\n\n{message}")
+
+# Функция планирования регулярных сканирований
+def start_scheduled_scan(app: Application):
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(scheduled_scan, 'interval', minutes=5, args=[app])
+    scheduler.start()
+
+def main():
+    app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+
+    # Запуск планировщика для регулярных сканирований
+    start_scheduled_scan(app)
+
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(button_handler))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
+
+    app.run_polling()
+
+if __name__ == '__main__':
+    main()
