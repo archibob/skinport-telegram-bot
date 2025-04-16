@@ -99,8 +99,13 @@ async def scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             logger.info(f"Проверка предмета: {name} - цена: {min_price} - ссылка: {item_url}")
 
+            # Ищем ключевые слова в названии
             for item_name, max_price in items_to_search.items():
-                if item_name.lower() in name.lower() and min_price and float(min_price) <= max_price:
+                # Разбиваем строку на ключевые слова
+                item_keywords = item_name.lower().split()
+
+                # Проверяем, содержатся ли все ключевые слова в названии предмета
+                if all(keyword in name.lower() for keyword in item_keywords) and min_price and float(min_price) <= max_price:
                     found.append(f"{name} за {min_price}€\n🔗 {item_url}")
 
     except Exception as e:
