@@ -11,7 +11,7 @@ from telegram.ext import (
 import asyncio
 
 logging.basicConfig(level=logging.INFO)
-TELEGRAM_BOT_TOKEN = "8095985098:AAGmSZ1JZFunP2un1392Uh4gUg7LY3AjD6A"
+TOKEN = "8095985098:AAGmSZ1JZFunP2un1392Uh4gUg7LY3AjD6A"
 
 # Отслеживаемые и избранные предметы
 items_to_track = {}  # {item_name: {"min": 0, "max": 100}}
