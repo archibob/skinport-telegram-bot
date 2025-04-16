@@ -1,155 +1,139 @@
 import logging
 import requests
 import re
-from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import (
+    Application, CommandHandler, MessageHandler,
+    ContextTypes, CallbackQueryHandler, filters
+)
 
-# Токен и ID чата
 TELEGRAM_BOT_TOKEN = "8095985098:AAGmSZ1JZFunP2un1392Uh4gUg7LY3AjD6A"
 TELEGRAM_CHAT_ID = "388895285"
 API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
-# Логирование
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Хранилище отслеживаемых предметов
 items_to_search = {}
+waiting_for_input = {}
 
-# Функция нормализации названий (с удалением ненужных символов)
 def normalize(text):
-    # Убираем все ненужные символы, такие как скобки, но оставляем пробелы и тире для разделения частей названия
-    text = re.sub(r'\(.*?\)', '', text)  # Убираем модификаторы состояния, например (Well-Worn)
-    text = text.lower().replace("-", " ").replace("|", " ").strip()  # Преобразуем в нижний регистр и заменяем тире и вертикальные черты на пробелы
-    normalized_text = set(text.split())  # Разделяем по пробелам
-    logger.info(f"Нормализованный текст: {normalized_text}")
-    return normalized_text
+    text = re.sub(r'\(.*?\)', '', text)
+    text = text.lower().replace("-", " ").replace("|", " ").strip()
+    return set(text.split())
 
-# Отправка сообщения в Telegram
-async def send_telegram_message(message: str):
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
-    try:
-        response = requests.post(url, data=payload)
-        if response.status_code != 200:
-            logger.error(f"Ошибка отправки в Telegram: {response.text}")
-    except Exception as e:
-        logger.error(f"Ошибка Telegram: {e}")
-
-# Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    message = (
-        "Привет! Я бот для поиска предметов на Skinport.\n"
-        "Команды:\n"
-        "/add <название> <макс_цена> — добавить предмет\n"
-        "/add <название> <мин_цена> <макс_цена> — с минимальной ценой\n"
-        "/remove <название> — удалить предмет\n"
-        "/search — список предметов\n"
-        "/scan — ручной поиск по сайту"
-    )
-    await update.message.reply_text(message)
+    keyboard = [
+        [InlineKeyboardButton("➕ Добавить", callback_data="add")],
+        [InlineKeyboardButton("📋 Список", callback_data="list")],
+        [InlineKeyboardButton("🔍 Сканировать", callback_data="scan")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Выбери действие:", reply_markup=reply_markup)
 
-# Команда /add
-async def add_item(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if len(context.args) < 2:
-        await update.message.reply_text("Используй: /add <название> <макс_цена> или /add <название> <мин_цена> <макс_цена>")
-        return
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
 
-    try:
-        if len(context.args) >= 3 and context.args[-2].replace(",", ".").replace(".", "", 1).isdigit() and context.args[-1].replace(",", ".").replace(".", "", 1).isdigit():
-            *name_parts, min_price_str, max_price_str = context.args
-            min_price = float(min_price_str.replace(",", "."))
-            max_price = float(max_price_str.replace(",", "."))
+    if query.data == "add":
+        waiting_for_input[query.from_user.id] = "add"
+        await query.edit_message_text("Введи название предмета и, при необходимости, цену (пример: AWP Asiimov 100):")
+    elif query.data == "list":
+        if not items_to_search:
+            await query.edit_message_text("Список пуст.")
+            return
+        keyboard = [
+            [InlineKeyboardButton(f"❌ {name}", callback_data=f"remove|{name}")]
+            for name in items_to_search
+        ]
+        await query.edit_message_text("Отслеживаемые предметы:", reply_markup=InlineKeyboardMarkup(keyboard))
+    elif query.data == "scan":
+        await query.edit_message_text("Сканирование...")
+        await scan(query, context, edit=True)
+    elif query.data.startswith("remove|"):
+        name = query.data.split("|", 1)[1]
+        if name in items_to_search:
+            del items_to_search[name]
+            await query.edit_message_text(f"Удалён: {name}")
         else:
-            *name_parts, max_price_str = context.args
-            min_price = 0
-            max_price = float(max_price_str.replace(",", "."))
-    except ValueError:
-        await update.message.reply_text("Неверный формат цены.")
-        return
+            await query.edit_message_text(f"{name} не найден.")
 
-    item_name = " ".join(name_parts).lower().strip()
-    items_to_search[item_name] = {"min": min_price, "max": max_price}
-    await update.message.reply_text(f"Добавлен: {item_name} от {min_price}€ до {max_price}€")
+async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    if waiting_for_input.get(user_id) == "add":
+        parts = update.message.text.strip().split()
+        if not parts:
+            await update.message.reply_text("Название не распознано.")
+            return
 
-# Команда /remove
-async def remove_item(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not context.args:
-        await update.message.reply_text("Используй: /remove <название>")
-        return
+        prices = []
+        while parts and re.match(r"^\d+([.,]\d+)?$", parts[-1]):
+            prices.insert(0, float(parts.pop().replace(",", ".")))
 
-    item_name = " ".join(context.args).lower().strip()
-    if item_name in items_to_search:
-        del items_to_search[item_name]
-        await update.message.reply_text(f"Удалён: {item_name}")
-    else:
-        await update.message.reply_text(f"{item_name} не найден в списке.")
+        item_name = " ".join(parts).lower()
+        if not item_name:
+            await update.message.reply_text("Название не распознано.")
+            return
 
-# Команда /search
-async def search_items(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not items_to_search:
-        await update.message.reply_text("Список отслеживаемых предметов пуст.")
-        return
+        if len(prices) == 2:
+            min_price, max_price = prices
+        elif len(prices) == 1:
+            min_price, max_price = 0, prices[0]
+        else:
+            min_price, max_price = 0, 999
 
-    message = "Отслеживаемые предметы:\n"
-    for item, price_range in items_to_search.items():
-        message += f"- {item} от {price_range['min']}€ до {price_range['max']}€\n"
-    await update.message.reply_text(message)
+        items_to_search[item_name] = {"min": min_price, "max": max_price}
+        await update.message.reply_text(f"Добавлен: {item_name} от {min_price}€ до {max_price}€")
+        del waiting_for_input[user_id]
 
-# Команда /scan
-async def scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    found = []
-    url = API_URL
-
+async def scan(update_or_query, context: ContextTypes.DEFAULT_TYPE, edit=False):
     try:
-        response = requests.get(url)
+        response = requests.get(API_URL)
         data = response.json()
-        logger.info(f"Получено {len(data)} предметов от API")
+        found = []
 
         for entry in data:
             name = entry.get("market_hash_name", "")
             min_price = entry.get("min_price")
             item_url = entry.get("item_page", "")
 
-            # Пропускаем граффити и подобное
             if "graffiti" in name.lower():
                 continue
 
-            logger.info(f"Проверка предмета: {name} с ценой {min_price}€")
-
             name_set = normalize(name)
-
             for item_name, price_range in items_to_search.items():
                 item_set = normalize(item_name)
                 if item_set.issubset(name_set) and min_price:
-                    min_price_f = float(min_price)
-                    if price_range["min"] <= min_price_f <= price_range["max"]:
-                        found.append(f"{name} за {min_price}€\n🔗 {item_url}")
+                    price = float(min_price)
+                    if price_range["min"] <= price <= price_range["max"]:
+                        found.append(f"{name} за {price}€\n🔗 {item_url}")
                         break
+
+        if found:
+            msg = "Найдены предметы:\n\n" + "\n\n".join(found)
+        else:
+            msg = "Ничего не найдено."
+
+        if edit:
+            await update_or_query.edit_message_text(msg)
+        else:
+            await update_or_query.message.reply_text(msg)
 
     except Exception as e:
         logger.error(f"Ошибка при сканировании: {e}")
-        await update.message.reply_text("Произошла ошибка при сканировании.")
-        return
+        if edit:
+            await update_or_query.edit_message_text("Произошла ошибка.")
+        else:
+            await update_or_query.message.reply_text("Произошла ошибка.")
 
-    if found:
-        await update.message.reply_text("Найдены предметы:\n\n" + "\n\n".join(found))
-    else:
-        await update.message.reply_text("Ничего не найдено.")
-
-# Запуск бота
 def main():
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("add", add_item))
-    app.add_handler(CommandHandler("remove", remove_item))
-    app.add_handler(CommandHandler("search", search_items))
-    app.add_handler(CommandHandler("scan", scan))
+    app.add_handler(CallbackQueryHandler(button_handler))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
 
-    logger.info("Бот запускается...")
+    logger.info("Бот запущен")
     app.run_polling()
 
 if __name__ == '__main__':
