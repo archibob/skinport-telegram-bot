@@ -4,9 +4,8 @@ import re
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler,
-    MessageHandler, filters, ContextTypes, JobQueue
+    MessageHandler, filters, ContextTypes
 )
-from threading import Lock
 
 TELEGRAM_BOT_TOKEN = "8095985098:AAGmSZ1JZFunP2un1392Uh4gUg7LY3AjD6A"
 TELEGRAM_CHAT_ID = "388895285"
@@ -18,10 +17,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 items_to_search = {}
-favorite_items = {}
 waiting_for_input = {}
-
-lock = Lock()  # Защита от конкурентного доступа
 
 def normalize(text):
     text = re.sub(r'\(.*?\)', '', text)
@@ -32,8 +28,7 @@ def main_keyboard():
     keyboard = [
         [InlineKeyboardButton("➕ Добавить", callback_data="add")],
         [InlineKeyboardButton("📋 Список", callback_data="list")],
-        [InlineKeyboardButton("🔍 Сканировать", callback_data="scan")],
-        [InlineKeyboardButton("⭐ Избранное", callback_data="favorite")]
+        [InlineKeyboardButton("🔍 Сканировать", callback_data="scan")]
     ]
     return InlineKeyboardMarkup(keyboard)
 
@@ -65,9 +60,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.message.reply_text(f"Удалено: {name}", reply_markup=main_keyboard())
     elif query.data == "scan":
         await scan(query, context)
-    elif query.data == "favorite":
-        waiting_for_input[user_id] = "favorite"
-        await query.message.reply_text("Введите название предмета и максимальную цену для избранного:")
     elif query.data == "back":
         await query.message.reply_text("Выберите действие:", reply_markup=main_keyboard())
 
@@ -101,23 +93,6 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=main_keyboard()
         )
         del waiting_for_input[user_id]
-        
-    elif waiting_for_input.get(user_id) == "favorite":
-        parts = update.message.text.strip().split()
-        if len(parts) < 2:
-            await update.message.reply_text("Неверный формат. Используйте: название предмета максимальная цена", reply_markup=main_keyboard())
-            return
-        
-        item_name = " ".join(parts[:-1]).lower()
-        try:
-            max_price = float(parts[-1].replace(",", "."))
-        except ValueError:
-            await update.message.reply_text("Неверная цена.", reply_markup=main_keyboard())
-            return
-        
-        favorite_items[item_name] = {"max": max_price}
-        await update.message.reply_text(f"✅ Добавлено в избранное: {item_name} до {max_price}€", reply_markup=main_keyboard())
-        del waiting_for_input[user_id]
 
 async def scan(update_or_query, context: ContextTypes.DEFAULT_TYPE):
     found = []
@@ -145,15 +120,6 @@ async def scan(update_or_query, context: ContextTypes.DEFAULT_TYPE):
                         found.append(f"{name} за {min_price}€\n🔗 {item_url}")
                         break
 
-            for item_name, price_range in favorite_items.items():
-                item_set = normalize(item_name)
-                if item_set.issubset(name_set) and min_price:
-                    min_price_f = float(min_price)
-                    if min_price_f <= price_range["max"]:
-                        found.append(f"⭐ {name} за {min_price}€ (избранное)\n🔗 {item_url}")
-                        await send_telegram_message(f"Избранный предмет найден: {name} за {min_price}€\n🔗 {item_url}")
-                        break
-
     except Exception as e:
         logger.error(f"Ошибка при сканировании: {e}")
         await update_or_query.message.reply_text("Произошла ошибка при сканировании.", reply_markup=main_keyboard())
@@ -164,28 +130,17 @@ async def scan(update_or_query, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update_or_query.message.reply_text("Ничего не найдено.", reply_markup=main_keyboard())
 
-async def send_telegram_message(message: str):
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
-    try:
-        response = requests.post(url, data=payload)
-        if response.status_code != 200:
-            logger.error(f"Ошибка отправки в Telegram: {response.text}")
-    except Exception as e:
-        logger.error(f"Ошибка Telegram: {e}")
-
 def main():
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
-    job_queue = JobQueue()
-    job_queue.set_dispatcher(app.dispatcher)
+    job_queue = app.job_queue  # Используем job_queue из приложения
     
+    # Здесь можно добавлять задачи в очередь, если необходимо
+    # job_queue.run_repeating(some_task, interval=60)  # Пример задачи
+
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
     
-    # Создаем задачу для периодического сканирования
-    job_queue.run_repeating(scan, interval=60, first=0)
-
     app.run_polling()
 
 if __name__ == '__main__':
