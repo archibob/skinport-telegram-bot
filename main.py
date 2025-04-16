@@ -2,6 +2,7 @@ import logging
 import requests
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
+import re
 
 # Токен и ID чата
 TELEGRAM_BOT_TOKEN = "8095985098:AAGmSZ1JZFunP2un1392Uh4gUg7LY3AjD6A"
@@ -16,6 +17,10 @@ logger = logging.getLogger(__name__)
 
 # Хранилище отслеживаемых предметов в виде словаря: название -> макс. цена
 items_to_search = {}
+
+# Функция нормализации названия (удаление дефисов, вертикальных линий и перевод в нижний регистр)
+def normalize_name(name: str) -> str:
+    return re.sub(r"[^\w\s]", "", name.lower()).strip()
 
 # Отправка сообщения в Telegram
 async def send_telegram_message(message: str):
@@ -99,15 +104,15 @@ async def scan(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             logger.info(f"Проверка предмета: {name} - цена: {min_price} - ссылка: {item_url}")
 
-            # Ищем точные совпадения для "Karambit Knife"
-            for item_name, max_price in items_to_search.items():
-                item_keywords = item_name.lower().split()
+            # Нормализуем название предмета
+            normalized_name = normalize_name(name)
 
-                # Проверяем, что в названии содержатся оба ключевых слова
-                if all(keyword in name.lower() for keyword in item_keywords) and min_price and float(min_price) <= max_price:
-                    # Убедимся, что искомые ключевые слова идут подряд, как в "Karambit Knife"
-                    if all(keyword in name.lower() for keyword in item_keywords) and min_price and float(min_price) <= max_price:
-                        found.append(f"{name} за {min_price}€\n🔗 {item_url}")
+            # Ищем точные совпадения для каждого отслеживаемого предмета
+            for item_name, max_price in items_to_search.items():
+                normalized_item_name = normalize_name(item_name)
+
+                if normalized_item_name in normalized_name and min_price and float(min_price) <= max_price:
+                    found.append(f"{name} за {min_price}€\n🔗 {item_url}")
 
     except Exception as e:
         logger.error(f"Ошибка при сканировании: {e}")
