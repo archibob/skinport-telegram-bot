@@ -29,9 +29,9 @@ def main_keyboard():
     keyboard = [
         [InlineKeyboardButton("➕ Добавить", callback_data="add")],
         [InlineKeyboardButton("📋 Список", callback_data="list")],
-        [InlineKeyboardButton("🔍 Сканировать", callback_data="scan")],
+        [InlineKeyboardButton("➕ Добавить в избранное", callback_data="add_favorite")],  # Кнопка для добавления в избранное
         [InlineKeyboardButton("⭐ Избранное", callback_data="favorites")],
-        [InlineKeyboardButton("➕ Добавить в избранное", callback_data="add_favorite")]  # Новая кнопка для добавления в избранное
+        [InlineKeyboardButton("🔍 Сканировать", callback_data="scan")]
     ]
     return InlineKeyboardMarkup(keyboard)
 
