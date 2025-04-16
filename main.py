@@ -1,5 +1,6 @@
 import logging
 import requests
+import re
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
@@ -17,8 +18,10 @@ logger = logging.getLogger(__name__)
 # Хранилище отслеживаемых предметов
 items_to_search = {}
 
-# Функция нормализации названий
+# Функция нормализации названий (с удалением модификаторов состояния)
 def normalize(text):
+    # Удаляем модификаторы состояния, например (Well-Worn), (Minimal), и т.д.
+    text = re.sub(r'\(.*?\)', '', text)
     normalized_text = set(text.lower().replace("|", "").replace("-", "").split())
     logger.info(f"Нормализованный текст: {normalized_text}")
     return normalized_text
