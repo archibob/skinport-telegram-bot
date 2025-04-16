@@ -18,3 +18,4 @@ WORKDIR /app
 
 # Запускаем приложение
 CMD ["python", "main.py"]
+ 
