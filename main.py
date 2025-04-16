@@ -6,6 +6,7 @@ from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler,
     MessageHandler, filters, ContextTypes
 )
+from apscheduler.schedulers.background import BackgroundScheduler
 
 TELEGRAM_BOT_TOKEN = "8095985098:AAGmSZ1JZFunP2un1392Uh4gUg7LY3AjD6A"
 TELEGRAM_CHAT_ID = "388895285"
@@ -29,7 +30,7 @@ def main_keyboard():
     keyboard = [
         [InlineKeyboardButton("➕ Добавить", callback_data="add")],
         [InlineKeyboardButton("📋 Список", callback_data="list")],
-        [InlineKeyboardButton("➕ Добавить в избранное", callback_data="add_favorite")],  # Кнопка для добавления в избранное
+        [InlineKeyboardButton("➕ Добавить в избранное", callback_data="add_favorite")],
         [InlineKeyboardButton("⭐ Избранное", callback_data="favorites")],
         [InlineKeyboardButton("🔍 Сканировать", callback_data="scan")]
     ]
@@ -187,11 +188,63 @@ async def scan(update_or_query, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update_or_query.edit_message_text("Ничего не найдено.", reply_markup=main_keyboard())
 
+# Функция для регулярного сканирования по расписанию
+async def scheduled_scan(context: ContextTypes.DEFAULT_TYPE):
+    found = []
+    url = API_URL
+
+    try:
+        response = requests.get(url)
+        data = response.json()
+
+        for entry in data:
+            name = entry.get("market_hash_name", "")
+            min_price = entry.get("min_price")
+            item_url = entry.get("item_page", "")
+
+            if "graffiti" in name.lower():
+                continue
+
+            name_set = normalize(name)
+
+            for item_name, price_range in items_to_search.items():
+                item_set = normalize(item_name)
+                if item_set.issubset(name_set) and min_price:
+                    min_price_f = float(min_price)
+                    if price_range["min"] <= min_price_f <= price_range["max"]:
+                        found.append(f"{name} за {min_price}€\n🔗 {item_url}")
+                        break
+
+            # Check for favorite items
+            for item_name, price_range in favorite_items.items():
+                item_set = normalize(item_name)
+                if item_set.issubset(name_set) and min_price:
+                    min_price_f = float(min_price)
+                    if price_range["min"] <= min_price_f <= price_range["max"]:
+                        found.append(f"⭐ Избранное: {name} за {min_price}€\n🔗 {item_url}")
+                        break
+
+    except Exception as e:
+        logger.error(f"Ошибка при сканировании: {e}")
+        return
+
+    if found:
+        for user_id in favorite_items.keys():  # Отправить уведомление всем пользователям
+            context.bot.send_message(user_id, "Найдены предметы:\n\n" + "\n\n".join(found))
+
+# Планирование задачи для периодического сканирования
+def start_scheduled_scan():
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(scheduled_scan, 'interval', minutes=5, args=[app.context])
+    scheduler.start()
+
+# Запуск планировщика в основном коде
 def main():
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
+    start_scheduled_scan()  # Начинаем периодическое сканирование
     app.run_polling()
 
 if __name__ == '__main__':
