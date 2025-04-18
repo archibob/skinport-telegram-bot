@@ -195,7 +195,7 @@ async def scan(update_or_query, context: ContextTypes.DEFAULT_TYPE):
         await update_or_query.edit_message_text("Ничего не найдено.", reply_markup=get_main_keyboard())
 
 # Функция для регулярного сканирования по расписанию
-async def scheduled_scan(context: ContextTypes.DEFAULT_TYPE):
+async def scheduled_scan(context):
     found = []
     url = API_URL
 
@@ -250,7 +250,7 @@ def main():
 
     # Регулярное сканирование каждую минуту
     scheduler = BackgroundScheduler()
-    scheduler.add_job(scheduled_scan, 'interval', minutes=2, args=[application.context])
+    scheduler.add_job(scheduled_scan, 'interval', minutes=2, args=[application.bot])  # Передаем объект бота
     scheduler.start()
 
     application.run_polling()
