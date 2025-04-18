@@ -245,7 +245,7 @@ async def scheduled_scan(context: ContextTypes.DEFAULT_TYPE):
 # Функция планирования регулярных сканирований
 def start_scheduled_scan(app: Application):
     scheduler = BackgroundScheduler()
-    scheduler.add_job(scheduled_scan, 'interval', minutes=5, args=[app])
+    scheduler.add_job(scheduled_scan, 'interval', minutes=2, args=[app])  # 2 минуты для частого мониторинга
     scheduler.start()
 
 def main():
