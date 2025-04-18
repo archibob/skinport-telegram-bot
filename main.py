@@ -18,7 +18,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 items_to_search = {}
-favorite_items = {}  # Здесь теперь будем хранить избранные предметы для каждого пользователя
+favorite_items = {}  # Избранные предметы
 waiting_for_input = {}
 
 def normalize(text):
@@ -26,18 +26,17 @@ def normalize(text):
     text = text.lower().replace("-", " ").replace("|", " ").strip()
     return set(text.split())
 
-def main_keyboard():
-    keyboard = [
+def get_main_keyboard():
+    return InlineKeyboardMarkup([
         [InlineKeyboardButton("➕ Добавить", callback_data="add")],
         [InlineKeyboardButton("📋 Список", callback_data="list")],
-        [InlineKeyboardButton("➕ Добавить в избранное", callback_data="add_favorite")],
-        [InlineKeyboardButton("⭐ Избранное", callback_data="favorites")],
-        [InlineKeyboardButton("🔍 Сканировать", callback_data="scan")]
-    ]
-    return InlineKeyboardMarkup(keyboard)
+        [InlineKeyboardButton("🔍 Сканировать", callback_data="scan")],
+        [InlineKeyboardButton("⭐ Избранное", callback_data="fav_list")],
+        [InlineKeyboardButton("➕ В избранное", callback_data="fav_add")],
+    ])
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Выберите действие:", reply_markup=main_keyboard())
+    await update.message.reply_text("Выберите действие:", reply_markup=get_main_keyboard())
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -47,12 +46,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query.data == "add":
         waiting_for_input[user_id] = "add"
         await query.edit_message_text("Введите название предмета и (необязательно) цену:", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Назад", callback_data="back")]]))
-    elif query.data == "add_favorite":  
+    elif query.data == "fav_add":  # Кнопка добавления в избранное
         waiting_for_input[user_id] = "favorite"
         await query.edit_message_text("Введите название предмета и (необязательно) цену для добавления в избранное:", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Назад", callback_data="back")]]))
     elif query.data == "list":
         if not items_to_search:
-            await query.edit_message_text("Список пуст.", reply_markup=main_keyboard())
+            await query.edit_message_text("Список пуст.", reply_markup=get_main_keyboard())
             return
         keyboard = [
             [InlineKeyboardButton(f"❌ {name}", callback_data=f"delete|{name}") for name in items_to_search.keys()]
@@ -63,13 +62,13 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         name = query.data.split("|", 1)[1]
         if name in items_to_search:
             del items_to_search[name]
-            await query.edit_message_text(f"Удалено: {name}", reply_markup=main_keyboard())
+            await query.edit_message_text(f"Удалено: {name}", reply_markup=get_main_keyboard())
     elif query.data == "scan":
         await scan(query, context)
-    elif query.data == "favorites":
+    elif query.data == "fav_list":  # Избранное
         user_favorites = favorite_items.get(user_id, {})
         if not user_favorites:
-            await query.edit_message_text("Избранное пусто.", reply_markup=main_keyboard())
+            await query.edit_message_text("Избранное пусто.", reply_markup=get_main_keyboard())
             return
         keyboard = [
             [InlineKeyboardButton(f"❌ {name}", callback_data=f"remove_favorite|{name}") for name in user_favorites.keys()]
@@ -80,16 +79,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         name = query.data.split("|", 1)[1]
         if user_id in favorite_items and name in favorite_items[user_id]:
             del favorite_items[user_id][name]
-            await query.edit_message_text(f"Удалено из избранного: {name}", reply_markup=main_keyboard())
+            await query.edit_message_text(f"Удалено из избранного: {name}", reply_markup=get_main_keyboard())
     elif query.data == "back":
-        await query.edit_message_text("Выберите действие:", reply_markup=main_keyboard())
+        await query.edit_message_text("Выберите действие:", reply_markup=get_main_keyboard())
 
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     if waiting_for_input.get(user_id) == "add":
         parts = update.message.text.strip().split()
         if not parts:
-            await update.message.reply_text("Название не распознано.", reply_markup=main_keyboard())
+            await update.message.reply_text("Название не распознано.", reply_markup=get_main_keyboard())
             return
 
         prices = []
@@ -98,7 +97,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         item_name = " ".join(parts).lower()
         if not item_name:
-            await update.message.reply_text("Название не распознано.", reply_markup=main_keyboard())
+            await update.message.reply_text("Название не распознано.", reply_markup=get_main_keyboard())
             return
 
         if len(prices) == 2:
@@ -111,14 +110,14 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         items_to_search[item_name] = {"min": min_price, "max": max_price}
         await update.message.reply_text(
             f"✅ Добавлен: {item_name} от {min_price}€ до {max_price}€",
-            reply_markup=main_keyboard()
+            reply_markup=get_main_keyboard()
         )
         del waiting_for_input[user_id]
 
     elif waiting_for_input.get(user_id) == "favorite":
         parts = update.message.text.strip().split()
         if not parts:
-            await update.message.reply_text("Название не распознано.", reply_markup=main_keyboard())
+            await update.message.reply_text("Название не распознано.", reply_markup=get_main_keyboard())
             return
 
         prices = []
@@ -127,7 +126,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         item_name = " ".join(parts).lower()
         if not item_name:
-            await update.message.reply_text("Название не распознано.", reply_markup=main_keyboard())
+            await update.message.reply_text("Название не распознано.", reply_markup=get_main_keyboard())
             return
 
         if len(prices) == 2:
@@ -143,7 +142,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         favorite_items[user_id][item_name] = {"min": min_price, "max": max_price}
         await update.message.reply_text(
             f"✅ Добавлен в избранное: {item_name} от {min_price}€ до {max_price}€",
-            reply_markup=main_keyboard()
+            reply_markup=get_main_keyboard()
         )
         del waiting_for_input[user_id]
 
@@ -187,13 +186,13 @@ async def scan(update_or_query, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         logger.error(f"Ошибка при сканировании: {e}")
-        await update_or_query.edit_message_text("Произошла ошибка при сканировании.", reply_markup=main_keyboard())
+        await update_or_query.edit_message_text("Произошла ошибка при сканировании.", reply_markup=get_main_keyboard())
         return
 
     if found:
-        await update_or_query.edit_message_text("Найдены предметы:\n\n" + "\n\n".join(found), reply_markup=main_keyboard())
+        await update_or_query.edit_message_text("Найдены предметы:\n\n" + "\n\n".join(found), reply_markup=get_main_keyboard())
     else:
-        await update_or_query.edit_message_text("Ничего не найдено.", reply_markup=main_keyboard())
+        await update_or_query.edit_message_text("Ничего не найдено.", reply_markup=get_main_keyboard())
 
 # Функция для регулярного сканирования по расписанию
 async def scheduled_scan(context: ContextTypes.DEFAULT_TYPE):
@@ -235,30 +234,26 @@ async def scheduled_scan(context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         logger.error(f"Ошибка при сканировании: {e}")
-        context.bot.send_message(TELEGRAM_CHAT_ID, f"Ошибка при регулярном сканировании: {e}")
         return
 
     if found:
-        message = "\n\n".join(found)
-        context.bot.send_message(TELEGRAM_CHAT_ID, f"Новые предметы:\n\n{message}")
-
-# Функция планирования регулярных сканирований
-def start_scheduled_scan(app: Application):
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(scheduled_scan, 'interval', minutes=5, args=[app])
-    scheduler.start()
+        context.bot.send_message(chat_id=TELEGRAM_CHAT_ID, text="Найдены предметы:\n\n" + "\n\n".join(found))
+    else:
+        context.bot.send_message(chat_id=TELEGRAM_CHAT_ID, text="Ничего не найдено.")
 
 def main():
-    app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
-    # Запуск планировщика для регулярных сканирований
-    start_scheduled_scan(app)
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CallbackQueryHandler(button_handler))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(button_handler))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
+    # Регулярное сканирование каждую минуту
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(scheduled_scan, 'interval', minutes=2, args=[application.context])
+    scheduler.start()
 
-    app.run_polling()
+    application.run_polling()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
