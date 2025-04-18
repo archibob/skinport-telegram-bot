@@ -195,8 +195,8 @@ async def scan(update_or_query, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update_or_query.edit_message_text("Ничего не найдено.", reply_markup=main_keyboard())
 
-# Функция для регулярного сканирования по расписанию
-async def scheduled_scan(context: ContextTypes.DEFAULT_TYPE):
+# Функция для регулярного сканирования избранных предметов
+async def scheduled_favorite_scan(context: ContextTypes.DEFAULT_TYPE):
     found = []
     url = API_URL
 
@@ -214,15 +214,6 @@ async def scheduled_scan(context: ContextTypes.DEFAULT_TYPE):
 
             name_set = normalize(name)
 
-            # Проверяем обычные предметы
-            for item_name, price_range in items_to_search.items():
-                item_set = normalize(item_name)
-                if item_set.issubset(name_set) and min_price:
-                    min_price_f = float(min_price)
-                    if price_range["min"] <= min_price_f <= price_range["max"]:
-                        found.append(f"{name} за {min_price}€\n🔗 {item_url}")
-                        break
-
             # Проверяем избранные предметы только для каждого пользователя
             for user_id, user_favorites in favorite_items.items():
                 for item_name, price_range in user_favorites.items():
@@ -234,18 +225,18 @@ async def scheduled_scan(context: ContextTypes.DEFAULT_TYPE):
                             break
 
     except Exception as e:
-        logger.error(f"Ошибка при сканировании: {e}")
-        context.bot.send_message(TELEGRAM_CHAT_ID, f"Ошибка при регулярном сканировании: {e}")
+        logger.error(f"Ошибка при сканировании избранных: {e}")
+        context.bot.send_message(TELEGRAM_CHAT_ID, f"Ошибка при сканировании избранных предметов: {e}")
         return
 
     if found:
         message = "\n\n".join(found)
-        context.bot.send_message(TELEGRAM_CHAT_ID, f"Новые предметы:\n\n{message}")
+        context.bot.send_message(TELEGRAM_CHAT_ID, f"Новые избранные предметы:\n\n{message}")
 
 # Функция планирования регулярных сканирований
 def start_scheduled_scan(app: Application):
     scheduler = BackgroundScheduler()
-    scheduler.add_job(scheduled_scan, 'interval', minutes=2, args=[app])  # 2 минуты для частого мониторинга
+    scheduler.add_job(scheduled_favorite_scan, 'interval', minutes=5, args=[app])
     scheduler.start()
 
 def main():
