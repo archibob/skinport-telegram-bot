@@ -130,7 +130,7 @@ async def list_favorites(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 if __name__ == "__main__":
     app = Application.builder().token(TOKEN).build()
-    app.bot.context = app
+    
 
     app.add_handler(CommandHandler("add", add))
     app.add_handler(CommandHandler("remove", remove))
