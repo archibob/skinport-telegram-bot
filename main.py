@@ -1,146 +1,130 @@
 import asyncio
-import logging
 import json
-import requests
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+import logging
+import aiohttp
+from telegram import (
+    Update,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+)
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    CallbackQueryHandler,
+    MessageHandler,
+    ContextTypes,
+    filters,
+)
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from collections import defaultdict
 
-TOKEN = "8095985098:AAGmSZ1JZFunP2un1392Uh4gUg7LY3AjD6A"
-GROUP_CHAT_ID = "388895285"
+# === CONFIG ===
+TELEGRAM_BOT_TOKEN = "8095985098:AAGmSZ1JZFunP2un1392Uh4gUg7LY3AjD6A"
+TELEGRAM_CHAT_ID = "388895285"
+SCAN_INTERVAL = 120  # seconds
 
+# === LOGGING ===
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-user_favorites = defaultdict(list)
+# === DATA ===
+user_favorites = {}  # user_id: [{'name': ..., 'price': ..., 'quality': ...}]
 notified_items = set()
 
-HEADERS = {
-    "Accept": "application/json"
-}
+# === UTILS ===
+def format_skin_key(name: str, quality: str) -> str:
+    return f"{name.strip().lower()}::{quality.strip().lower()}"
 
-def get_skinport_items(name):
-    response = requests.get(f'https://api.skinport.com/v1/items?app_id=730&currency=EUR', headers=HEADERS)
-    if response.status_code != 200:
-        return []
-    items = response.json()
-    return [item for item in items if name.lower() in item['market_hash_name'].lower()]
+def get_item_url(item_id):
+    return f"https://skinport.com/item/{item_id}"
 
-async def send_notification(item, user_id, context: ContextTypes.DEFAULT_TYPE):
-    item_id = f"{item['market_hash_name']}_{item['price']}_{item['item_id']}"
-    if item_id in notified_items:
-        return
-    notified_items.add(item_id)
-
-    message = (
-        f"Найден предмет:\n"
-        f"Название: {item['market_hash_name']}\n"
-        f"Цена: {item['price']} EUR\n"
-        f"[Открыть на Skinport](https://skinport.com/item/{item['item_id']})"
-    )
-
-    await context.bot.send_message(
-        chat_id=GROUP_CHAT_ID,
-        text=message,
-        parse_mode='Markdown'
-    )
-
-async def scheduled_scan():
-    for user_id, items in user_favorites.items():
-        for fav in items:
-            market_items = get_skinport_items(fav["name"])
-            for item in market_items:
-                if (
-                    item["price"] <= fav["max_price"] and
-                    fav["quality"].lower() in item["market_hash_name"].lower()
-                ):
-                    await send_notification(item, user_id, app.bot.context)
-
-async def scan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Идёт сканирование...")
-    await scheduled_scan()
-    await update.message.reply_text("Сканирование завершено.")
-
-async def add(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    args = context.args
-    if len(args) < 3:
-        await update.message.reply_text("Использование: /add <название> <макс_цена> <качество>")
-        return
-
-    name = args[0]
-    try:
-        max_price = float(args[1])
-    except ValueError:
-        await update.message.reply_text("Макс_цена должна быть числом.")
-        return
-
-    quality = ' '.join(args[2:])
-    user_id = update.effective_user.id
-
-    user_favorites[user_id].append({
-        "name": name,
-        "max_price": max_price,
-        "quality": quality
-    })
-
-    await update.message.reply_text(f"Добавлен предмет: {name}, до {max_price} EUR, качество: {quality}")
-
-async def remove(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    favorites = user_favorites[user_id]
-
-    if not favorites:
-        await update.message.reply_text("У вас нет избранных предметов.")
-        return
-
+# === COMMANDS ===
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-        [InlineKeyboardButton(f"{fav['name']} ({fav['quality']})", callback_data=str(i))]
-        for i, fav in enumerate(favorites)
+        [InlineKeyboardButton("Добавить в избранное", callback_data="add_fav")],
+        [InlineKeyboardButton("Список избранного", callback_data="list_fav")],
     ]
-
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Выберите предмет для удаления:", reply_markup=reply_markup)
+    await update.message.reply_text("Выберите действие:", reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
     user_id = query.from_user.id
-    index = int(query.data)
+    if query.data == "add_fav":
+        context.user_data["state"] = "waiting_for_fav"
+        await query.edit_message_text("Введите название, максимальную цену и качество через |, например:\n`AK-47 | Redline | 30 | Field-Tested`", parse_mode="Markdown")
+    elif query.data == "list_fav":
+        favs = user_favorites.get(user_id, [])
+        if not favs:
+            await query.edit_message_text("Список избранного пуст.")
+            return
+        msg = "Ваш список избранного:\n\n"
+        for i, item in enumerate(favs, 1):
+            msg += f"{i}. {item['name']} | До {item['price']}€ | {item['quality']}\n"
+        await query.edit_message_text(msg)
 
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    if context.user_data.get("state") == "waiting_for_fav":
+        try:
+            parts = update.message.text.strip().split("|")
+            name = parts[0].strip()
+            price = float(parts[1].strip())
+            quality = parts[2].strip()
+            fav_list = user_favorites.setdefault(user_id, [])
+            fav_list.append({"name": name, "price": price, "quality": quality})
+            await update.message.reply_text(f"Добавлено: {name} | до {price}€ | {quality}")
+        except Exception:
+            await update.message.reply_text("Ошибка формата. Попробуйте ещё раз.")
+        context.user_data["state"] = None
+
+# === SCAN FUNCTION ===
+async def scan_site():
+    global notified_items
+    url = "https://api.skinport.com/api/browse?sort=price&order=asc"
     try:
-        removed = user_favorites[user_id].pop(index)
-        await query.edit_message_text(f"Удалён: {removed['name']} ({removed['quality']})")
-    except IndexError:
-        await query.edit_message_text("Ошибка: предмет не найден.")
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                data = await resp.json()
 
-async def list_favorites(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    favorites = user_favorites[user_id]
+        for user_id, favs in user_favorites.items():
+            for fav in favs:
+                for item in data.get("items", []):
+                    item_name = item.get("market_hash_name")
+                    item_price = item.get("price", 9999)
+                    item_quality = item.get("wear_tier") or item.get("exterior")
 
-    if not favorites:
-        await update.message.reply_text("У вас нет избранных предметов.")
-        return
+                    if not item_name or not item_price or not item_quality:
+                        continue
 
-    text = "Ваши избранные предметы:\n"
-    for i, fav in enumerate(favorites, 1):
-        text += f"{i}. {fav['name']} ({fav['quality']}) — до {fav['max_price']} EUR\n"
+                    key = format_skin_key(item_name, item_quality)
+                    fav_key = format_skin_key(fav["name"], fav["quality"])
 
-    await update.message.reply_text(text)
+                    if fav_key == key and item_price <= fav["price"]:
+                        item_id = item.get("id") or item.get("item_id")
+                        notify_id = f"{user_id}:{item_id}"
+                        if notify_id in notified_items:
+                            continue
+                        notified_items.add(notify_id)
+                        msg = f"Найден предмет для @{user_id}:\n\n{item_name} ({item_quality})\nЦена: {item_price}€\n\n{get_item_url(item_id)}"
+                        await context.bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=msg)
+    except Exception as e:
+        logger.error(f"Ошибка при сканировании: {e}")
 
+async def scheduled_scan():
+    await scan_site()
+
+# === MAIN ===
 if __name__ == "__main__":
-    app = Application.builder().token(TOKEN).build()
-    
+    app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
-    app.add_handler(CommandHandler("add", add))
-    app.add_handler(CommandHandler("remove", remove))
-    app.add_handler(CommandHandler("list", list_favorites))
-    app.add_handler(CommandHandler("scan", scan_command))
+    app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(scheduled_scan, "interval", minutes=2)
+    scheduler.add_job(scheduled_scan, "interval", seconds=SCAN_INTERVAL)
     scheduler.start()
 
-    print("Бот запущен")
+    logger.info("Бот запущен.")
     app.run_polling()
