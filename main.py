@@ -7,8 +7,8 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Cont
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from collections import defaultdict
 
-TELEGRAM_BOT_TOKEN = "8095985098:AAGmSZ1JZFunP2un1392Uh4gUg7LY3AjD6A"
-TELEGRAM_CHAT_ID = "388895285"
+TOKEN = "8095985098:AAGmSZ1JZFunP2un1392Uh4gUg7LY3AjD6A"
+GROUP_CHAT_ID = "388895285"
 
 logging.basicConfig(level=logging.INFO)
 
