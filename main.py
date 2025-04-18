@@ -1,248 +1,146 @@
+import asyncio
 import logging
+import json
 import requests
-import re
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import (
-    Application, CommandHandler, CallbackQueryHandler,
-    MessageHandler, filters, ContextTypes
-)
-from apscheduler.schedulers.background import BackgroundScheduler
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from collections import defaultdict
 
-# 
 TELEGRAM_BOT_TOKEN = "8095985098:AAGmSZ1JZFunP2un1392Uh4gUg7LY3AjD6A"
 TELEGRAM_CHAT_ID = "388895285"
-API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 
-# Логирование
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
-logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
-# Хранилища
-items_to_search = {}
-favorite_items = {}  # user_id -> { item_name: {min, max, quality} }
-waiting_for_input = {}
+user_favorites = defaultdict(list)
+notified_items = set()
 
-# Упрощение названий
-def normalize(text):
-    text = re.sub(r'\(.*?\)', '', text)
-    text = text.lower().replace("-", " ").replace("|", " ").strip()
-    return set(text.split())
+HEADERS = {
+    "Accept": "application/json"
+}
 
-# Главное меню
-def main_keyboard():
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("➕ Добавить", callback_data="add")],
-        [InlineKeyboardButton("📋 Список", callback_data="list")],
-        [InlineKeyboardButton("➕ В избранное", callback_data="add_favorite")],
-        [InlineKeyboardButton("⭐ Избранное", callback_data="favorites")],
-        [InlineKeyboardButton("🔍 Сканировать", callback_data="scan")]
-    ])
+def get_skinport_items(name):
+    response = requests.get(f'https://api.skinport.com/v1/items?app_id=730&currency=EUR', headers=HEADERS)
+    if response.status_code != 200:
+        return []
+    items = response.json()
+    return [item for item in items if name.lower() in item['market_hash_name'].lower()]
 
-# Старт
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Выберите действие:", reply_markup=main_keyboard())
+async def send_notification(item, user_id, context: ContextTypes.DEFAULT_TYPE):
+    item_id = f"{item['market_hash_name']}_{item['price']}_{item['item_id']}"
+    if item_id in notified_items:
+        return
+    notified_items.add(item_id)
 
-# Обработка кнопок
-async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message = (
+        f"Найден предмет:\n"
+        f"Название: {item['market_hash_name']}\n"
+        f"Цена: {item['price']} EUR\n"
+        f"[Открыть на Skinport](https://skinport.com/item/{item['item_id']})"
+    )
+
+    await context.bot.send_message(
+        chat_id=GROUP_CHAT_ID,
+        text=message,
+        parse_mode='Markdown'
+    )
+
+async def scheduled_scan():
+    for user_id, items in user_favorites.items():
+        for fav in items:
+            market_items = get_skinport_items(fav["name"])
+            for item in market_items:
+                if (
+                    item["price"] <= fav["max_price"] and
+                    fav["quality"].lower() in item["market_hash_name"].lower()
+                ):
+                    await send_notification(item, user_id, app.bot.context)
+
+async def scan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Идёт сканирование...")
+    await scheduled_scan()
+    await update.message.reply_text("Сканирование завершено.")
+
+async def add(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    args = context.args
+    if len(args) < 3:
+        await update.message.reply_text("Использование: /add <название> <макс_цена> <качество>")
+        return
+
+    name = args[0]
+    try:
+        max_price = float(args[1])
+    except ValueError:
+        await update.message.reply_text("Макс_цена должна быть числом.")
+        return
+
+    quality = ' '.join(args[2:])
+    user_id = update.effective_user.id
+
+    user_favorites[user_id].append({
+        "name": name,
+        "max_price": max_price,
+        "quality": quality
+    })
+
+    await update.message.reply_text(f"Добавлен предмет: {name}, до {max_price} EUR, качество: {quality}")
+
+async def remove(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    favorites = user_favorites[user_id]
+
+    if not favorites:
+        await update.message.reply_text("У вас нет избранных предметов.")
+        return
+
+    keyboard = [
+        [InlineKeyboardButton(f"{fav['name']} ({fav['quality']})", callback_data=str(i))]
+        for i, fav in enumerate(favorites)
+    ]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Выберите предмет для удаления:", reply_markup=reply_markup)
+
+async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+
     user_id = query.from_user.id
-
-    if query.data == "add":
-        waiting_for_input[user_id] = "add"
-        await query.edit_message_text("Введите название, цену и качество (опц.):", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Назад", callback_data="back")]]))
-
-    elif query.data == "add_favorite":
-        waiting_for_input[user_id] = "favorite"
-        await query.edit_message_text("Введите название, цену и качество (опц.) для избранного:", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Назад", callback_data="back")]]))
-
-    elif query.data == "list":
-        if not items_to_search:
-            await query.edit_message_text("Список пуст.", reply_markup=main_keyboard())
-            return
-        keyboard = [[InlineKeyboardButton(f"❌ {name}", callback_data=f"delete|{name}") for name in items_to_search]]
-        keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="back")])
-        await query.edit_message_text("Ваши предметы:", reply_markup=InlineKeyboardMarkup(keyboard))
-
-    elif query.data.startswith("delete|"):
-        name = query.data.split("|", 1)[1]
-        if name in items_to_search:
-            del items_to_search[name]
-        await query.edit_message_text(f"Удалено: {name}", reply_markup=main_keyboard())
-
-    elif query.data == "favorites":
-        user_favs = favorite_items.get(user_id, {})
-        if not user_favs:
-            await query.edit_message_text("Избранное пусто.", reply_markup=main_keyboard())
-            return
-        keyboard = [[InlineKeyboardButton(f"❌ {name}", callback_data=f"remove_favorite|{name}") for name in user_favs]]
-        keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="back")])
-        await query.edit_message_text("Избранное:", reply_markup=InlineKeyboardMarkup(keyboard))
-
-    elif query.data.startswith("remove_favorite|"):
-        name = query.data.split("|", 1)[1]
-        favorite_items.get(user_id, {}).pop(name, None)
-        await query.edit_message_text(f"Удалено из избранного: {name}", reply_markup=main_keyboard())
-
-    elif query.data == "scan":
-        await scan(query, context)
-
-    elif query.data == "back":
-        await query.edit_message_text("Выберите действие:", reply_markup=main_keyboard())
-
-# Обработка текстовых сообщений
-async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
-    mode = waiting_for_input.get(user_id)
-
-    if not mode:
-        return
-
-    text = update.message.text.strip()
-    parts = text.split()
-
-    # Выделим цены и возможное качество
-    prices, quality = [], None
-    quality_keywords = {"factory", "minimal", "field", "well", "battle"}
-    while parts:
-        part = parts[-1].lower()
-        if re.match(r"\d+([.,]\d+)?", part):
-            prices.insert(0, float(parts.pop().replace(",", ".")))
-        elif any(k in part for k in quality_keywords):
-            quality = part
-            parts.pop()
-        else:
-            break
-
-    item_name = " ".join(parts).lower()
-    if not item_name:
-        await update.message.reply_text("Название не распознано.", reply_markup=main_keyboard())
-        return
-
-    min_price, max_price = 0, 999
-    if len(prices) == 2:
-        min_price, max_price = prices
-    elif len(prices) == 1:
-        max_price = prices[0]
-
-    item_data = {"min": min_price, "max": max_price, "quality": quality}
-
-    if mode == "add":
-        items_to_search[item_name] = item_data
-        await update.message.reply_text(f"✅ Добавлен: {item_name} от {min_price}€ до {max_price}€", reply_markup=main_keyboard())
-
-    elif mode == "favorite":
-        favorite_items.setdefault(user_id, {})[item_name] = item_data
-        await update.message.reply_text(f"✅ В избранное: {item_name} от {min_price}€ до {max_price}€", reply_markup=main_keyboard())
-
-    waiting_for_input.pop(user_id, None)
-
-# Проверка соответствия качества
-def match_quality(item_name, expected_quality):
-    if not expected_quality:
-        return True
-    return expected_quality in item_name.lower()
-
-# Сканирование
-async def scan(update_or_query, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update_or_query.from_user.id
-    found = []
+    index = int(query.data)
 
     try:
-        response = requests.get(API_URL)
-        data = response.json()
+        removed = user_favorites[user_id].pop(index)
+        await query.edit_message_text(f"Удалён: {removed['name']} ({removed['quality']})")
+    except IndexError:
+        await query.edit_message_text("Ошибка: предмет не найден.")
 
-        for entry in data:
-            name = entry.get("market_hash_name", "")
-            min_price = entry.get("min_price")
-            item_url = entry.get("item_page", "")
+async def list_favorites(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    favorites = user_favorites[user_id]
 
-            if not min_price or "graffiti" in name.lower():
-                continue
-
-            name_set = normalize(name)
-            min_price_f = float(min_price)
-
-            # Общие предметы
-            for item_name, rule in items_to_search.items():
-                if normalize(item_name).issubset(name_set) and match_quality(name, rule.get("quality")):
-                    if rule["min"] <= min_price_f <= rule["max"]:
-                        found.append(f"{name} за {min_price}€\n🔗 {item_url}")
-                        break
-
-            # Избранное пользователя
-            for fav_name, rule in favorite_items.get(user_id, {}).items():
-                if normalize(fav_name).issubset(name_set) and match_quality(name, rule.get("quality")):
-                    if rule["min"] <= min_price_f <= rule["max"]:
-                        found.append(f"⭐ {name} за {min_price}€\n🔗 {item_url}")
-                        break
-
-    except Exception as e:
-        logger.error(f"Ошибка при сканировании: {e}")
-        await update_or_query.edit_message_text("Ошибка при сканировании.", reply_markup=main_keyboard())
+    if not favorites:
+        await update.message.reply_text("У вас нет избранных предметов.")
         return
 
-    msg = "\n\n".join(found) if found else "Ничего не найдено."
-    await update_or_query.edit_message_text(msg, reply_markup=main_keyboard())
+    text = "Ваши избранные предметы:\n"
+    for i, fav in enumerate(favorites, 1):
+        text += f"{i}. {fav['name']} ({fav['quality']}) — до {fav['max_price']} EUR\n"
 
-# Автоматическое сканирование
-async def scheduled_scan(context: ContextTypes.DEFAULT_TYPE):
-    found = []
-    try:
-        response = requests.get(API_URL)
-        data = response.json()
-
-        for entry in data:
-            name = entry.get("market_hash_name", "")
-            min_price = entry.get("min_price")
-            item_url = entry.get("item_page", "")
-
-            if not min_price or "graffiti" in name.lower():
-                continue
-
-            name_set = normalize(name)
-            min_price_f = float(min_price)
-
-            for user_id, favs in favorite_items.items():
-                for fav_name, rule in favs.items():
-                    if normalize(fav_name).issubset(name_set) and match_quality(name, rule.get("quality")):
-                        if rule["min"] <= min_price_f <= rule["max"]:
-                            found.append(f"⭐ {name} за {min_price}€\n🔗 {item_url}")
-                            break
-
-    except Exception as e:
-        logger.error(f"Ошибка при авто-сканировании: {e}")
-        return
-
-    if found:
-        msg = "Новые предметы:\n\n" + "\n\n".join(found)
-        context.bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=msg)
-
-        for user_id in favorite_items:
-            try:
-                context.bot.send_message(chat_id=user_id, text=msg)
-            except Exception as e:
-                logger.warning(f"Не удалось отправить пользователю {user_id}: {e}")
-
-# Планировщик
-def start_scheduled_scan(app: Application):
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(scheduled_scan, 'interval', minutes=2, args=[app])
-    scheduler.start()
-
-# Запуск бота
-def main():
-    app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
-
-    start_scheduled_scan(app)
-
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(button_handler))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
-
-    app.run_polling()
+    await update.message.reply_text(text)
 
 if __name__ == "__main__":
-    main()
+    app = Application.builder().token(TOKEN).build()
+    app.bot.context = app
+
+    app.add_handler(CommandHandler("add", add))
+    app.add_handler(CommandHandler("remove", remove))
+    app.add_handler(CommandHandler("list", list_favorites))
+    app.add_handler(CommandHandler("scan", scan_command))
+    app.add_handler(CallbackQueryHandler(button))
+
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(scheduled_scan, "interval", minutes=2)
+    scheduler.start()
+
+    print("Бот запущен")
+    app.run_polling()
