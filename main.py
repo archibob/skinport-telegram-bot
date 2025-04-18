@@ -11,6 +11,11 @@ API_URL = "https://api.skinport.com/v1/items?app_id=730&currency=EUR"
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+def normalize(text):
+    text = re.sub(r'\(.*?\)', '', text)  # Удаляем всё, что в скобках
+    text = text.lower().replace("-", " ").replace("|", " ").strip()  # Приводим к нижнему регистру, заменяем дефисы и вертикальные линии на пробелы
+    return set(text.split())  # Возвращаем множество слов
+
 # Глобальные словари для хранения данных по пользователям
 user_states = {}
 items_to_search = {}
